@@ -1,0 +1,185 @@
+{
+  "resourceId": "specialmodes",
+  "content": [
+    {
+      "id": "critical",
+      "name": "Critical Hit Mode",
+      "description": "Allows for critical Hits during a match",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "critController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "A great game"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dramatic",
+      "name": "Dramatic Mode",
+      "description": "Makes the match a lot more dramatic!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "dramaticController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "A great game"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "turbo",
+      "name": "Turbo Mode",
+      "description": "Cancel Attacks!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "turboController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "A great game"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "vampire",
+      "name": "Vampire Mode",
+      "description": "Absorb Half the Damage you deal!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "vampireController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "A great game"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "vengeance",
+      "name": "Vengeance Mode",
+      "description": "Take Half the Damage you deal!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "vengeanceController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "A great game"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "critController",
+      "type": "assistController",
+      "scriptId": "criticalHitController"
+    },
+    {
+      "id": "dramaticController",
+      "type": "assistController",
+      "scriptId": "dramaticController"
+    },
+    {
+      "id": "turboController",
+      "type": "assistController",
+      "scriptId": "turboScript"
+    },
+    {
+      "id": "vampireController",
+      "type": "assistController",
+      "scriptId": "vampireScript"
+    },
+    {
+      "id": "vengeanceController",
+      "type": "assistController",
+      "scriptId": "vengeanceScript"
+    }
+  ]
+}
