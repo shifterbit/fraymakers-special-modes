@@ -16,7 +16,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "critical_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -47,7 +47,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "dramatic_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -78,7 +78,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "turbo_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -109,7 +109,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "vampire_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -140,7 +140,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "vengeance_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -171,7 +171,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "ex_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -202,7 +202,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "ssf1_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -233,7 +233,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "smash64_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -264,7 +264,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "heavy_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -295,7 +295,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "light_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -326,7 +326,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "mega_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -357,7 +357,7 @@
         "ui": {
           "entityId": "menu",
           "render": {
-            "animation": "assist_full",
+            "animation": "mini_full",
             "animation_icon_no_palette": "assist_css"
           },
           "hud": {
@@ -372,6 +372,10 @@
           }
         }
       }
+    },
+    {
+      "id": "controller",
+      "type": "customGameObject"
     },
     {
       "id": "critController",

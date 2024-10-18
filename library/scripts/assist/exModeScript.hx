@@ -1,5 +1,32 @@
 var enabled = self.makeBool(false);
 
+function isRunning() {
+    var objs: Array<CustomGameObject> = match.getCustomGameObjects();
+    var foundExisting = false;
+    Engine.forEach(objs, function (obj: CustomGameObject, _idx: Int) {
+        if (obj.exports.specialModesEX == true) {
+            foundExisting = true;
+            return false;
+        } else {
+            return true;
+        }
+    }, []);
+    Engine.log(foundExisting);
+    return foundExisting;
+
+
+}
+
+function createController() {
+    if (!isRunning()) {
+        Engine.log("creating controller");
+        var player: Character = self.getOwner();
+        var resource: String = player.getAssistContentStat("spriteContent") + "controller";
+        var controller: CustomApiObject = match.createCustomGameObject(resource, player);
+        controller.exports.specialModesEX = true;
+    }
+}
+
 
 /** 
  * Checks if any item in the array is either equal to or is a subtring of the target
@@ -25,9 +52,9 @@ function exMode(obj: Character) {
             player.preLand(true);
         }
         var performedCancel = false;
-        player.updateCharacterStats({grabAirType: GrabAirType.GRAB});
+        player.updateCharacterStats({ grabAirType: GrabAirType.GRAB });
         player.addTimer(1, cancelWindow, function () {
-            
+
             var currentAnimation = player.getAnimation();
             var usingSpecial = currentAnimation.substr(0, 7) == "special";
             var heldControls = player.getHeldControls();
@@ -39,7 +66,7 @@ function exMode(obj: Character) {
             var jump = heldControls.JUMP_ANY || heldControls.JUMP || heldControls.TAP_JUMP;
             var grab = heldControls.GRAB;
             var clutch = heldControls.SHIELD2;
-            
+
             var normal = heldControls.ATTACK;
             if (!usingSpecial) {
                 if (special && side && airborne) {
@@ -76,10 +103,13 @@ function exMode(obj: Character) {
 }
 
 function enableEXMode() {
-    Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
-        exMode(player);
-        return true;
-    }, []);
+    if (!isRunning()) {
+
+        Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
+            exMode(player);
+            return true;
+        }, []);
+    }
     var player: Character = self.getOwner();
     var container: Container = player.getDamageCounterContainer();
     var resource: String = player.getAssistContentStat("spriteContent") + "exmode";
@@ -89,6 +119,7 @@ function enableEXMode() {
     sprite.y = sprite.y + 12;
     sprite.x = sprite.x + (8 * 13);
     container.addChild(sprite);
+    createController();
 }
 
 // Runs on object init
@@ -99,8 +130,12 @@ function update() {
     var player: Character = self.getOwner();
     player.setAssistCharge(0);
     if (match.getPlayers().length > 1 && !enabled.get()) {
+        var port = player.getPlayerConfig().port;
+        Engine.log("Player " + port);
         enabled.set(true);
-        enableEXMode();
+        player.addTimer((1 + port) * 5, 1, function () {
+            enableEXMode();
+        }, { persistent: true });
     }
 }
 function onTeardown() {

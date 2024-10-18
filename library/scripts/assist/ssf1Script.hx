@@ -1,5 +1,33 @@
 var enabled = self.makeBool(false);
 
+function isRunning() {
+    var objs: Array<CustomGameObject> = match.getCustomGameObjects();
+    var foundExisting = false;
+    Engine.forEach(objs, function (obj: CustomGameObject, _idx: Int) {
+        if (obj.exports.specialModesSSF1 == true) {
+            foundExisting = true;
+            return false;
+        } else {
+            return true;
+        }
+    }, []);
+    Engine.log(foundExisting);
+    return foundExisting;
+
+
+}
+
+function createController() {
+    if (!isRunning()) {
+        Engine.log("creating controller");
+        var player: Character = self.getOwner();
+        var resource: String = player.getAssistContentStat("spriteContent") + "controller";
+        var controller: CustomApiObject = match.createCustomGameObject(resource, player);
+        controller.exports.specialModesSSF1 = true;
+    }
+}
+
+
 function ssf1Mode(obj: Character) {
     obj.addStatusEffect(StatusEffectType.GROUND_FRICTION_MULTIPLIER, 0.3);
     obj.addStatusEffect(StatusEffectType.AERIAL_FRICTION_MULTIPLIER, 0.07);
@@ -65,14 +93,16 @@ function ssf1Mode(obj: Character) {
 }
 
 function enableSSF1Mode() {
-    Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
-        ssf1Mode(player);
-        return true;
-    }, []);
-    Engine.forEach(match.getStructures(), function (structure: Structure, _idx: Int) {
-        structure.updateStructureStats({ leftLedge: false, rightLedge: false });
-        return true;
-    }, []);
+    if (!isRunning()) {
+        Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
+            ssf1Mode(player);
+            return true;
+        }, []);
+        Engine.forEach(match.getStructures(), function (structure: Structure, _idx: Int) {
+            structure.updateStructureStats({ leftLedge: false, rightLedge: false });
+            return true;
+        }, []);
+    }
     var player: Character = self.getOwner();
     var container: Container = player.getDamageCounterContainer();
     var resource: String = player.getAssistContentStat("spriteContent") + "ssf1";
@@ -82,6 +112,7 @@ function enableSSF1Mode() {
     sprite.y = sprite.y + 12;
     sprite.x = sprite.x + (8 * 13);
     container.addChild(sprite);
+    createController();
 
 }
 
@@ -93,8 +124,12 @@ function update() {
     var player: Character = self.getOwner();
     player.setAssistCharge(0);
     if (match.getPlayers().length > 1 && !enabled.get()) {
+        var port = player.getPlayerConfig().port;
+        Engine.log("Player " + port);
         enabled.set(true);
-        enableSSF1Mode();
+        player.addTimer((1 + port) * 5, 1, function () {
+            enableSSF1Mode();
+        }, { persistent: true });
     }
 }
 function onTeardown() {
