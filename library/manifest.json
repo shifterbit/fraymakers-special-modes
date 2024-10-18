@@ -26,7 +26,7 @@
             "animation": "assist_css",
             "info": {
               "game": "Fraymakers",
-              "description": "A great game"
+              "description": "Allows for critical Hits during a match"
             }
           }
         }
@@ -57,7 +57,7 @@
             "animation": "assist_css",
             "info": {
               "game": "Fraymakers",
-              "description": "A great game"
+              "description": "Makes the match a lot more dramatic!"
             }
           }
         }
@@ -66,7 +66,7 @@
     {
       "id": "turbo",
       "name": "Turbo Mode",
-      "description": "Cancel Attacks!",
+      "description": "Allows you to cancel Attacks into each other!",
       "type": "assist",
       "objectStatsId": "assisttemplateAssistObjectStats",
       "animationStatsId": "assisttemplateAnimationStats",
@@ -88,7 +88,7 @@
             "animation": "assist_css",
             "info": {
               "game": "Fraymakers",
-              "description": "A great game"
+              "description": "Allows you to cancel Attacks into each other!"
             }
           }
         }
@@ -119,7 +119,7 @@
             "animation": "assist_css",
             "info": {
               "game": "Fraymakers",
-              "description": "A great game"
+              "description": "Absorb Half the Damage you deal!"
             }
           }
         }
@@ -150,7 +150,224 @@
             "animation": "assist_css",
             "info": {
               "game": "Fraymakers",
-              "description": "A great game"
+              "description": "Take Half the Damage you deal!"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "exmode",
+      "name": "EX Mode",
+      "description": "Special Cancelling, Attacks Restore Double Jump and Air Dashes.",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "exController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "Special Cancelling, Attacks Restore Double Jump and Air Dashes."
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ssf1",
+      "name": "SSF1 Mode",
+      "description": "Going back to the game's roots",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "ssf1Controller",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "Going back to the game's roots"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "smash64",
+      "name": "Smash64 Mode",
+      "description": "Smash 64 but in Fraymakers!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "smash64Controller",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "Smash 64 but in Fraymakers!"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "heavy",
+      "name": "Heavy Mode",
+      "description": "Fight under stronger gravity!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "heavyController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "Fight under stronger gravity!"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "light",
+      "name": "Light Mode",
+      "description": "Fight as light as a feather!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "lightController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "Fight as light as a feather!"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mega",
+      "name": "Mega Mode",
+      "description": "Fight as giants!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "megaController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "Fight as giants!"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mini",
+      "name": "Mini Mode",
+      "description": "Fight whilst Mini Sized!",
+      "type": "assist",
+      "objectStatsId": "assisttemplateAssistObjectStats",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats",
+      "scriptId": "nothingScript",
+      "costumesId": "assisttemplateCostumes",
+      "assistControllerId": "miniController",
+      "metadata": {
+        "ui": {
+          "entityId": "menu",
+          "render": {
+            "animation": "assist_full",
+            "animation_icon_no_palette": "assist_css"
+          },
+          "hud": {
+            "animation": "assist_hud"
+          },
+          "css": {
+            "animation": "assist_css",
+            "info": {
+              "game": "Fraymakers",
+              "description": "Fight whilst Mini Sized!"
             }
           }
         }
@@ -180,6 +397,41 @@
       "id": "vengeanceController",
       "type": "assistController",
       "scriptId": "vengeanceScript"
+    },
+    {
+      "id": "exController",
+      "type": "assistController",
+      "scriptId": "exModeScript"
+    },
+    {
+      "id": "ssf1Controller",
+      "type": "assistController",
+      "scriptId": "ssf1Script"
+    },
+    {
+      "id": "smash64Controller",
+      "type": "assistController",
+      "scriptId": "smash64Script"
+    },
+    {
+      "id": "heavyController",
+      "type": "assistController",
+      "scriptId": "heavyScript"
+    },
+    {
+      "id": "lightController",
+      "type": "assistController",
+      "scriptId": "lightScript"
+    },
+    {
+      "id": "megaController",
+      "type": "assistController",
+      "scriptId": "megaScript"
+    },
+    {
+      "id": "miniController",
+      "type": "assistController",
+      "scriptId": "miniScript"
     }
   ]
 }

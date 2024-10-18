@@ -124,8 +124,8 @@
       "pluginMetadata": {
       },
       "rotation": 0,
-      "scaleX": 4,
-      "scaleY": 3,
+      "scaleX": 2,
+      "scaleY": 1.5,
       "type": "IMAGE",
       "x": -6,
       "y": -4
@@ -139,8 +139,8 @@
       "pluginMetadata": {
       },
       "rotation": 0,
-      "scaleX": 1,
-      "scaleY": 1,
+      "scaleX": 0.5,
+      "scaleY": 0.5,
       "type": "IMAGE",
       "x": 0,
       "y": 0

@@ -37,7 +37,7 @@
       "length": 1,
       "pluginMetadata": {
       },
-      "symbol": "4fa58515-fbe7-45f7-ba0f-d526e91425c9",
+      "symbol": "5629f9f1-008a-497c-b458-16e37126bf7f",
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "IMAGE"
@@ -218,19 +218,19 @@
   ],
   "symbols": [
     {
-      "$id": "4fa58515-fbe7-45f7-ba0f-d526e91425c9",
+      "$id": "5629f9f1-008a-497c-b458-16e37126bf7f",
       "alpha": 1,
-      "imageAsset": "2698038c-935f-434b-9fba-b72fe1a8f419",
-      "pivotX": 128,
-      "pivotY": 128,
+      "imageAsset": "4552e2d3-137b-47b5-86f8-b64d90a7d45a",
+      "pivotX": 41,
+      "pivotY": 21,
       "pluginMetadata": {
       },
       "rotation": 0,
       "scaleX": 1,
       "scaleY": 1,
       "type": "IMAGE",
-      "x": -109,
-      "y": -121
+      "x": 0,
+      "y": 0
     }
   ],
   "tags": [

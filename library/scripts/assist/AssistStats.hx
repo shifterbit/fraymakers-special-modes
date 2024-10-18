@@ -8,7 +8,7 @@ STATE_SLAM = 3;
 STATE_OUTRO = 4;
 
 {
-	spriteContent: self.getResource().getContent("lag"),
+	spriteContent: self.getResource().getContent(""),
 	initialState: STATE_IDLE,
 	stateTransitionMapOverrides: [
 		STATE_IDLE => {

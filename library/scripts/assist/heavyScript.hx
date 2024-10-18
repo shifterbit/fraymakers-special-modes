@@ -1,28 +1,20 @@
 var enabled = self.makeBool(false);
 
-function vengeance(event: GameObjectEvent) {
-    event.data.self.addDamage(Math.ceil(event.data.hitboxStats.damage / 2));
-
-}
-
-function enableVengeanceMode() {
-    var players = match.getPlayers();
-    Engine.forEach(players, function (player: Character, _idx: Int) {
-        player.addEventListener(GameObjectEvent.HIT_DEALT, vengeance, { persistent: true });
+function enableHeavyMode() {
+    Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
+        player.addStatusEffect(StatusEffectType.GRAVITY_MULTIPLIER, 2);
         return true;
     }, []);
     var player: Character = self.getOwner();
     var container: Container = player.getDamageCounterContainer();
-    var resource: String = player.getAssistContentStat("spriteContent") + "vengeance";
+    var resource: String = player.getAssistContentStat("spriteContent") + "heavy";
     var sprite = Sprite.create(resource);
     sprite.scaleY = 0.6;
     sprite.scaleX = 0.6;
     sprite.y = sprite.y + 12;
     sprite.x = sprite.x + (8 * 13);
     container.addChild(sprite);
-
 }
-
 // Runs on object init
 function initialize() {
 }
@@ -32,7 +24,7 @@ function update() {
     player.setAssistCharge(0);
     if (match.getPlayers().length > 1 && !enabled.get()) {
         enabled.set(true);
-        enableVengeanceMode();
+        enableHeavyMode();
     }
 }
 function onTeardown() {

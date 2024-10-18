@@ -37,7 +37,7 @@
       "length": 1,
       "pluginMetadata": {
       },
-      "symbol": null,
+      "symbol": "359aa6ed-a9b2-4bbc-8eee-2683c1239446",
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "IMAGE"
@@ -222,6 +222,21 @@
     "com.fraymakers.FraymakersMetadata"
   ],
   "symbols": [
+    {
+      "$id": "359aa6ed-a9b2-4bbc-8eee-2683c1239446",
+      "alpha": 1,
+      "imageAsset": "914bd1e0-a37c-4a54-a64b-daccb676332d",
+      "pivotX": 41,
+      "pivotY": 21,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "type": "IMAGE",
+      "x": 0,
+      "y": 0
+    }
   ],
   "tags": [
   ],

@@ -8,18 +8,25 @@ function vampire(event: GameObjectEvent) {
 
 function enableVampireMode() {
     var players = match.getPlayers();
-    Engine.log(players);
     Engine.forEach(players, function (player: Character, _idx: Int) {
         player.addEventListener(GameObjectEvent.HIT_DEALT, vampire, { persistent: true });
         return true;
     }, []);
+    var player: Character = self.getOwner();
+    var container: Container = player.getDamageCounterContainer();
+    var resource: String = player.getAssistContentStat("spriteContent") + "vampire";
+    var sprite = Sprite.create(resource);
+    sprite.scaleY = 0.6;
+    sprite.scaleX = 0.6;
+    sprite.y = sprite.y + 12;
+    sprite.x = sprite.x + (8 * 13);
+    container.addChild(sprite);
 
 }
 
 
 // Runs on object init
 function initialize() {
-    Engine.log("Hello WOrld");
 }
 
 function update() {

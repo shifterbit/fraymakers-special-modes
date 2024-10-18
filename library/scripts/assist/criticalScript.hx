@@ -7,11 +7,7 @@ function willCrit() {
 }
 
 function visuals(event: GameObjectEvent) {
-	Engine.log("running visuals");
 	var foe: Character = event.data.foe;
-	var darken = new HsbcColorFilter();
-	darken.brightness = 0.1;
-	darken.saturation = 0;
 
 
 	camera.addForcedTarget(foe);
@@ -20,7 +16,7 @@ function visuals(event: GameObjectEvent) {
 		camera.deleteForcedTarget(foe);
 		camera.addTarget(foe);
 		camera.setMode(0);
-	}, {});
+	}, {persistent: true});
 }
 
 function boostStats(event: GameObjectEvent) {
@@ -47,11 +43,9 @@ function containsString(arr: Array<String>, item: String) {
 }
 
 
-function enableDramaticMode() {
+function enableCriticalMode() {
 	var players = match.getPlayers();
-	Engine.log(players);
 	Engine.forEach(players, function (player: Character, _idx: Int) {
-		Engine.log(player);
 		player.addTimer(1, -1,
 			function () {
 				var firstFrame = player.getCurrentFrame() <= 3;
@@ -64,6 +58,15 @@ function enableDramaticMode() {
 			, { persistent: true });
 		return true;
 	}, []);
+	var player: Character = self.getOwner();
+    var container: Container = player.getDamageCounterContainer();
+    var resource: String = player.getAssistContentStat("spriteContent") + "critical";
+    var sprite = Sprite.create(resource);
+    sprite.scaleY = 0.6;
+    sprite.scaleX = 0.6;
+    sprite.y = sprite.y + 12;
+    sprite.x = sprite.x + (8 * 13);
+    container.addChild(sprite);
 
 }
 
@@ -76,7 +79,7 @@ function update() {
 	player.setAssistCharge(0);
 	if (match.getPlayers().length > 1 && !enabled.get()) {
 		enabled.set(true);
-		enableDramaticMode();
+		enableCriticalMode();
 	}
 }
 // function onTeardown() {

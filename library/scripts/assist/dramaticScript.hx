@@ -2,12 +2,7 @@ var enabled = self.makeBool(false);
 
 
 function visuals(event: GameObjectEvent) {
-    Engine.log("running visuals");
     var foe: Character = event.data.foe;
-    var darken = new HsbcColorFilter();
-    darken.brightness = 0.1;
-    darken.saturation = 0;
-
 
     camera.addForcedTarget(foe);
     camera.setMode(1);
@@ -15,14 +10,12 @@ function visuals(event: GameObjectEvent) {
         camera.deleteForcedTarget(foe);
         camera.addTarget(foe);
         camera.setMode(0);
-    }, {});
+    }, {persistent: true});
 }
 
 function enableDramaticMode() {
     var players = match.getPlayers();
-    Engine.log(players);
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        Engine.log(player);
         player.addTimer(1, -1,
             function () {
                 player.addEventListener(GameObjectEvent.HIT_DEALT, visuals, { persistent: true });
@@ -30,6 +23,15 @@ function enableDramaticMode() {
             , { persistent: true });
         return true;
     }, []);
+    var player: Character = self.getOwner();
+    var container: Container = player.getDamageCounterContainer();
+    var resource: String = player.getAssistContentStat("spriteContent") + "dramatic";
+    var sprite = Sprite.create(resource);
+    sprite.scaleY = 0.6;
+    sprite.scaleX = 0.6;
+    sprite.y = sprite.y + 12;
+    sprite.x = sprite.x + (8 * 13);
+    container.addChild(sprite);
 
 }
 
