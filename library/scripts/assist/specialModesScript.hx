@@ -3,7 +3,7 @@
 // DO NOT TOUCH
 var enabled = self.makeBool(false);
 var prefix = "specialModeType_";
-var mode = "none";
+var globalMode = "none";
 var modes = [
     "none",
     "mega",
@@ -19,6 +19,25 @@ var modes = [
     "ssf1",
     "exmode"
 ];
+
+var conflicts: Array<SArray<String>> = [
+    [],
+    ["mini"],
+    ["mega"],
+    ["light"],
+    ["heavy"],
+    [],
+    ["vengeance"],
+    ["vampire"],
+    [],
+    [],
+    [],
+    [],
+    []
+];
+
+
+
 
 /** 
  * Checks if any item in the array is either equal to or is a subtring of the target
@@ -46,6 +65,18 @@ function currentMode() {
     return modes[costume];
 }
 
+function modeIdx(mode: String) {
+    var i = 0;
+    Engine.forEach(modes, function (md: String, idx: Int) {
+        if (md == mode) {
+            i = idx;
+            return false;
+        }
+        return true;
+    }, []);
+    return i;
+}
+
 function slug(mode: String) {
     return prefix + mode;
 }
@@ -53,7 +84,7 @@ function slug(mode: String) {
 function displayMode() {
     var player: Character = self.getOwner();
     var container: Container = player.getDamageCounterContainer();
-    var resource: String = player.getAssistContentStat("spriteContent") + mode;
+    var resource: String = player.getAssistContentStat("spriteContent") + globalMode;
     var sprite = Sprite.create(resource);
     sprite.scaleY = 0.6;
     sprite.scaleX = 0.6;
@@ -61,7 +92,7 @@ function displayMode() {
     sprite.x = sprite.x + (8 * 13);
     container.addChild(sprite);
 }
-function isRunning() {
+function isRunning(mode: String) {
     var objs: Array<CustomGameObject> = match.getCustomGameObjects();
     var foundExisting = false;
     Engine.forEach(objs, function (obj: CustomGameObject, _idx: Int) {
@@ -76,24 +107,27 @@ function isRunning() {
     return foundExisting;
 }
 
-function createController() {
-    if (!isRunning()) {
+function createController(mode: String) {
+    if (!isRunning(mode)) {
         Engine.log("creating controller");
         var player: Character = self.getOwner();
         var resource: String = player.getAssistContentStat("spriteContent") + "controller";
-        var controller: CustomApiObject = match.createCustomGameObject(resource, player);
+        var controller: CustomGameObject = match.createCustomGameObject(resource, player);
         controller.exports.specialModeType = slug(mode);
+        for (conflict in conflicts[modeIdx(mode)]) {
+            createController(conflict);
+        }
     }
 }
 
 function initialize() {
-    mode = currentMode();
+    globalMode = currentMode();
 
 
 }
 
 function enableMode() {
-    switch (mode) {
+    switch (globalMode) {
         case ("none"): return;
         case ("mega"): enableMegaMode();
         case ("mini"): enableMiniMode();
@@ -109,7 +143,7 @@ function enableMode() {
         case ("exmode"): enableEXMode();
         default: return;
     }
-    createController();
+    createController(globalMode);
     displayMode();
 
 }
@@ -135,7 +169,7 @@ function vengeance(event: GameObjectEvent) {
 }
 
 function enableVengeanceMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         var players = match.getPlayers();
         Engine.forEach(players, function (player: Character, _idx: Int) {
             player.addEventListener(GameObjectEvent.HIT_DEALT, vengeance, { persistent: true });
@@ -153,7 +187,7 @@ function vampire(event: GameObjectEvent) {
 }
 
 function enableVampireMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         var players = match.getPlayers();
         Engine.forEach(players, function (player: Character, _idx: Int) {
             player.addEventListener(GameObjectEvent.HIT_DEALT, vampire, { persistent: true });
@@ -170,7 +204,7 @@ function turbo(event: GameObjectEvent) {
 }
 
 function enableTurboMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         var players = match.getPlayers();
         Engine.forEach(players, function (player: Character, _idx: Int) {
             player.addEventListener(GameObjectEvent.HIT_DEALT, turbo, { persistent: true });
@@ -202,13 +236,9 @@ function boostStats(event: GameObjectEvent) {
 
 function enableDramaticMode() {
     var players = match.getPlayers();
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(players, function (player: Character, _idx: Int) {
-            player.addTimer(1, -1,
-                function () {
-                    player.addEventListener(GameObjectEvent.HIT_DEALT, visuals, { persistent: true });
-                }
-                , { persistent: true });
+            player.addEventListener(GameObjectEvent.HIT_DEALT, visuals, { persistent: true });
             return true;
         }, []);
     }
@@ -218,22 +248,20 @@ function enableDramaticMode() {
 
 
 function willCrit() {
-    return Random.getInt(1,16) == 8;
+    return Random.getInt(1, 16) == 8;
 }
 
 function enableCriticalMode() {
     var players = match.getPlayers();
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(players, function (player: Character, _idx: Int) {
-            player.addTimer(1, -1,
-                function () {
-                    if (willCrit()) {
-                        player.addEventListener(GameObjectEvent.HIT_DEALT, visuals);
-                        player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, boostStats);
-
-                    }
+            player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
+                if (willCrit()) {
+                    boostStats(event);
+                    player.addEventListener(GameObjectEvent.HIT_DEALT, visuals);
                 }
-                , { persistent: true });
+            }, { persistent: true });
+
             return true;
         }, []);
     }
@@ -241,7 +269,7 @@ function enableCriticalMode() {
 }
 
 function enableHeavyMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
             player.addStatusEffect(StatusEffectType.GRAVITY_MULTIPLIER, 2);
             return true;
@@ -250,7 +278,7 @@ function enableHeavyMode() {
 }
 
 function enableLightMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
             player.addStatusEffect(StatusEffectType.GRAVITY_MULTIPLIER, 0.5);
             return true;
@@ -264,7 +292,7 @@ function makeMega(obj: GameObject) {
 }
 
 function enableMegaMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
             player.addStatusEffect(StatusEffectType.SIZE_MULTIPLIER, 2);
             player.addStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, 1.4);
@@ -290,7 +318,7 @@ function makeMini(obj: GameObject) {
 }
 
 function enableMiniMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
             player.addStatusEffect(StatusEffectType.SIZE_MULTIPLIER, 0.5);
             player.addStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, 0.7);
@@ -369,7 +397,7 @@ function exMode(obj: Character) {
 }
 
 function enableEXMode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
             exMode(player);
             return true;
@@ -443,7 +471,7 @@ function ssf1Mode(obj: Character) {
 }
 
 function enableSSF1Mode() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
             ssf1Mode(player);
             return true;
@@ -476,7 +504,7 @@ function smash64Mode(obj: Character) {
 }
 
 function enableSmash64() {
-    if (!isRunning()) {
+    if (!isRunning(globalMode)) {
         Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
             smash64Mode(player);
             return true;
