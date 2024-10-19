@@ -397,6 +397,16 @@
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "IMAGE"
+    },
+    {
+      "$id": "43b2f642-56a1-491f-933f-a0561ff82e03",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "symbol": "0b981bb7-f793-41d6-94ee-8a9a077bc065",
+      "tweenType": "LINEAR",
+      "tweened": false,
+      "type": "IMAGE"
     }
   ],
   "layers": [
@@ -428,7 +438,8 @@
       "$id": "24134c36-03e0-418e-a4d4-d81a308ee308",
       "hidden": false,
       "keyframes": [
-        "d37e14c2-d82c-444a-9168-f4b6a021c4c1"
+        "d37e14c2-d82c-444a-9168-f4b6a021c4c1",
+        "43b2f642-56a1-491f-933f-a0561ff82e03"
       ],
       "locked": false,
       "name": "Image Layer",
@@ -975,6 +986,21 @@
       "type": "IMAGE",
       "x": -6,
       "y": -4
+    },
+    {
+      "$id": "0b981bb7-f793-41d6-94ee-8a9a077bc065",
+      "alpha": 1,
+      "imageAsset": "2b47dd51-4e9e-4a8f-98d0-d8728bc2d8b8",
+      "pivotX": 20.5,
+      "pivotY": 10.5,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "type": "IMAGE",
+      "x": 0,
+      "y": 0
     }
   ],
   "tags": [

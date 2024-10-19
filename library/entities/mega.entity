@@ -93,6 +93,32 @@
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "IMAGE"
+    },
+    {
+      "$id": "dcd2a3c3-4fe6-437e-a284-1dd7686a56da",
+      "length": 1,
+      "name": "",
+      "pluginMetadata": {
+      },
+      "type": "LABEL"
+    },
+    {
+      "$id": "eedba0f2-5738-4e48-b3c0-f6e8c11f1e1d",
+      "code": "",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
+    },
+    {
+      "$id": "c6515b84-c73f-4a27-99e0-aa125b920009",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "symbol": "44fafe28-f108-40bc-85d7-58690b04783d",
+      "tweenType": "LINEAR",
+      "tweened": false,
+      "type": "IMAGE"
     }
   ],
   "layers": [
@@ -100,7 +126,8 @@
       "$id": "ac77fff2-3d6c-4b17-9978-36516f60421a",
       "hidden": false,
       "keyframes": [
-        "ef2aa6c9-4cab-4328-a99a-b863a871092a"
+        "ef2aa6c9-4cab-4328-a99a-b863a871092a",
+        "dcd2a3c3-4fe6-437e-a284-1dd7686a56da"
       ],
       "locked": false,
       "name": "Labels",
@@ -112,7 +139,8 @@
       "$id": "95f3c67b-0066-4456-9df2-84a11e80af21",
       "hidden": false,
       "keyframes": [
-        "3b932e84-feb9-4000-88c1-9d65dc89f207"
+        "3b932e84-feb9-4000-88c1-9d65dc89f207",
+        "eedba0f2-5738-4e48-b3c0-f6e8c11f1e1d"
       ],
       "language": "",
       "locked": false,
@@ -125,7 +153,8 @@
       "$id": "b6aa1764-3ec7-4260-a326-8a504e609e6b",
       "hidden": false,
       "keyframes": [
-        "838a33c7-9825-4fd3-94c6-dcab28cd0f1e"
+        "838a33c7-9825-4fd3-94c6-dcab28cd0f1e",
+        "c6515b84-c73f-4a27-99e0-aa125b920009"
       ],
       "locked": false,
       "name": "Image 0",
@@ -219,6 +248,21 @@
   "symbols": [
     {
       "$id": "be7f02a1-6450-440b-a8a5-85ffad002828",
+      "alpha": 1,
+      "imageAsset": "b2c76eb5-21e7-495c-8694-5ba0df98ee7e",
+      "pivotX": 41,
+      "pivotY": 21,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "type": "IMAGE",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "$id": "44fafe28-f108-40bc-85d7-58690b04783d",
       "alpha": 1,
       "imageAsset": "b2c76eb5-21e7-495c-8694-5ba0df98ee7e",
       "pivotX": 41,
