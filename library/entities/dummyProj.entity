@@ -240,14 +240,18 @@
     {
       "$id": "85982f96-2e85-4df5-91a5-f4e288bcddcb",
       "defaultAlpha": 0.5,
-      "defaultColor": "0x000000",
+      "defaultColor": "0xd1d1d1",
       "hidden": false,
       "keyframes": [
         "53bdbc0e-f1df-4686-bc5f-8a4d94ab2d8c"
       ],
       "locked": false,
-      "name": "hurtbox0",
+      "name": "customboxa0",
       "pluginMetadata": {
+        "com.fraymakers.FraymakersMetadata": {
+          "collisionBoxType": "CUSTOM_BOX_A",
+          "index": 0
+        }
       },
       "type": "COLLISION_BOX"
     }
@@ -284,7 +288,7 @@
     {
       "$id": "59b67416-0652-41cb-a475-b3a62a106053",
       "alpha": 0.5,
-      "color": "0xfcba03",
+      "color": null,
       "pivotX": 128,
       "pivotY": 128,
       "pluginMetadata": {

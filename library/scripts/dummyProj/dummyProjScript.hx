@@ -6,6 +6,7 @@ var Y_SPEED = -7; // Y Speed of water
 // Instance vars
 var life = self.makeInt(60 * 5);
 var originalOwner = null;
+self.exports.dummy = true;
 
 function initialize(){
 	//self.addEventListener(EntityEvent.COLLIDE_FLOOR, onGroundHit, { persistent: true });

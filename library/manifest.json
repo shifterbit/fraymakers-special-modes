@@ -105,12 +105,19 @@
       "type": "customGameObject"
     },
     {
+      "id": "missionPrompt",
+      "type": "customGameObject",
+      "animationStatsId": "missionAnimationStats",
+      "objectStatsId": "missionStats",
+      "scriptId": "missionScript"
+    },
+    {
       "id": "dummyProj",
       "type": "projectile",
       "objectStatsId": "dummyProjStats",
       "animationStatsId": "dummyProjAnimationStats",
       "hitboxStatsId": "dummyProjHitboxStats",
-      "scriptId": "dummyProjScript",
+      "scriptId": "nothingScript",
       "costumesId": "assisttemplateCostumes"
     }
   ]

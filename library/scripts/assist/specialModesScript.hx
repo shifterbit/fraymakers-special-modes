@@ -5,10 +5,11 @@ var enabled = self.makeBool(false);
 var prefix = "specialModeType_";
 var globalMode = "none";
 var timeLeft = self.makeInt(60 * 60 * 5);
+var globalDummy: Projectile = null;
+var globalController: CustomGameObject = null;
 var MISSION_FAIL = -1;
 var MISSION_SUCCESS = 1;
 var MISSION_PENDING = 0;
-var globalController: CustomGameObject = null;
 var modes = [
     "none",
     "mega",
@@ -227,7 +228,7 @@ function enableMode() {
             case ("ssf1"): enableSSF1Mode();
             case ("exmode"): enableEXMode();
             case ("coin"): { enableCoins(); };
-            default: { enableUltimateMode(); };
+            default: { enableMissionMode(); };
         }
     }
 
@@ -921,6 +922,14 @@ function pacmanMode(duration: Int) {
 
 }
 
+function createTimeObject(frames: Int) {
+    var timeString = Engine.framesToTimeString(frames);
+    Engine.log(timeString);
+    var timeObj = parseTimeString(timeString);
+    Engine.log(timeObj);
+    return timeObj;
+}
+
 
 function enableCoins() {
     if (match.getMatchSettingsConfig().time > 0) {
@@ -936,9 +945,9 @@ function enableCoins() {
         p.addTimer(1, -1, function () {
             if (match.getMatchSettingsConfig().time == 0) {
                 var frames = timeLeft.dec();
-                var timeString = Engine.framesToTimeString(frames);
-                var timeObj = parseTimeString(timeString);
-                var ts = renderTime(timeObj, timeSprites, globalController.getViewRootContainer());
+                var timeObj = createTimeObject(frames);
+
+                var ts = renderTime(timeObj, timeSprites, globalController.getViewRootContainer(), 0);
                 var container = camera.getForegroundContainer();
                 container.rotation = 0;
                 container.addChildAt(globalController.getViewRootContainer(), 0);
@@ -1061,7 +1070,7 @@ function parseTimeString(text: String) {
 
 }
 
-function renderTime(time: Int, sprites: Array<Sprite>, container: Container) {
+function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset: Int) {
     var resource = getContent("number");
     var baseOffset = 16;
     var minutes = time.minutes;
@@ -1086,7 +1095,7 @@ function renderTime(time: Int, sprites: Array<Sprite>, container: Container) {
         sprite.addFilter(filter);
         sprite.currentAnimation = animation;
         sprite.x = 500 + (baseOffset) * (1 + pos);
-        sprite.y = 32;
+        sprite.y = 32 + yOffset;
         sprite.scaleX = 1;
         sprite.scaleY = 1;
         sprite.currentFrame = frame;
@@ -1147,18 +1156,8 @@ function renderTime(time: Int, sprites: Array<Sprite>, container: Container) {
 
 }
 
-function failMissionEvent(event: GameObjectEvent) {
-    var player: Character = event.data.self;
-    var port = player.getPlayerConfig().port;
 
-    globalController.exports.data.missionStatus[port] = MISSION_FAIL;
-}
-function succeedMissionEvent(event: GameObjectEvent) {
-    var player: Character = event.data.self;
-    var port = player.getPlayerConfig().port;
 
-    globalController.exports.data.missionStatus[port] = MISSION_SUCCESS;
-}
 
 function failedMission(player: Character) {
     var port = player.getPlayerConfig().port;
@@ -1182,9 +1181,15 @@ function regenBuff(player: Character, duration: Int) {
     innerGlow.color = 0xFFFFFF;
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
-    player.addTimer(10, Math.floor(duration / 10), function () {
-        player.addDamage(-0.5);
+    var uid = player.addTimer(20, duration / 20, function () {
+        player.addDamage(-1);
     }, { persistent: true });
+    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+        player.removeTimer(uid);
+        player.removeFilter(innerGlow);
+        player.removeFilter(outerGlow);
+    }, { persistent: true });
+
 
     player.addTimer(duration, 1, function () {
         player.removeFilter(innerGlow);
@@ -1203,9 +1208,16 @@ function mobilityBuff(player: Character, duration: Int) {
     var airSpeed = player.addStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, 1.1, { tag: tag });
     var groundSpeed = player.addStatusEffect(StatusEffectType.GROUND_SPEED_ACCELERATION_MULTIPLIER, 1.1, { tag: tag });
 
+    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+        player.removeStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, airSpeed.id);
+        player.removeStatusEffect(GROUND_SPEED_ACCELERATION_MULTIPLIER, groundSpeed.id);
+        player.removeFilter(innerGlow);
+        player.removeFilter(outerGlow);
+    }, { persistent: true });
+
     player.addTimer(duration, 1, function () {
-        player.removeStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, airSpeed);
-        player.removeStatusEffect(GROUND_SPEED_ACCELERATION_MULTIPLIER, groundSpeed);
+        player.removeStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, airSpeed.id);
+        player.removeStatusEffect(GROUND_SPEED_ACCELERATION_MULTIPLIER, groundSpeed.id);
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
     }, { persistent: true });
@@ -1224,8 +1236,14 @@ function protectionbuff(player: Character, duration: Int) {
         var damageDiff = Math.ceil(-0.75 * event.data.hitboxStats.damage);
         player.addDamage(damageDiff);
     };
-
     player.addEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived, { persistent: true });
+
+    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+        player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived);
+        player.removeFilter(innerGlow);
+        player.removeFilter(outerGlow);
+    }, { persistent: true });
+
     player.addTimer(duration, 1, function () {
         player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived);
         player.removeFilter(innerGlow);
@@ -1247,10 +1265,18 @@ function damageBuff(player: Character, duration: Int) {
     var hitstun = player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.1, { tag: tag });
     var knockback = player.addStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, 1.1, { tag: tag });
 
+    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+        player.removeStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, damage.id);
+        player.removeStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, hitstun.id);
+        player.removeStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, knockback.id);
+        player.removeFilter(innerGlow);
+        player.removeFilter(outerGlow);
+    }, { persistent: true });
+
     player.addTimer(duration, 1, function () {
-        player.removeStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, damage);
-        player.removeStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, hitstun);
-        player.removeStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, knockback);
+        player.removeStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, damage.id);
+        player.removeStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, hitstun.id);
+        player.removeStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, knockback.id);
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
     }, { persistent: true });
@@ -1259,27 +1285,34 @@ function damageBuff(player: Character, duration: Int) {
 
 
 
-
 function noHit(duration: Int) {
     var players: Array<Character> = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
         var port = player.getPlayerConfig().port;
-        player.addEventListener(GameObjectEvent.ENTER_HITSTUN, failMissionEvent, { persistent: true });
+        player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
+            var port = player.getPlayerConfig().port;
+            globalController.exports.data.missionStatus[port] = MISSION_FAIL;
+        }, { persistent: true });
         player.addTimer(duration, 1, function () {
             if (!failedMission(player)) {
                 globalController.exports.data.missionStatus[port] = MISSION_SUCCESS;
             }
         }, { persistent: true });
+        return true;
     }, []);
 }
 
 
 
 function dealDamage(duration: Int, damage: Int) {
+    Engine.log("dealDamage Mission begun");
+
     var players: Array<Character> = match.getPlayers();
     var addDamage = function (event: GameObjectEvent) {
         var player: Character = event.data.self;
         var port: Int = player.getPlayerConfig().port;
+
+        Engine.log("Adding damage: " + [event.data.hitboxStats.damage, globalController.exports.data]);
         globalController.exports.data.missionData[port].damage += event.data.hitboxStats.damage;
         if (globalController.exports.data.missionData[port].damage >= damage) {
             globalController.exports.data.missionStatus[port] = MISSION_SUCCESS;
@@ -1296,17 +1329,135 @@ function dealDamage(duration: Int, damage: Int) {
         player.addTimer(duration, 1, function () {
             player.removeEventListener(GameObjectEvent.HIT_DEALT, addDamage);
         }, { persistent: true });
+        return true;
     }, []);
 
 }
-function resetMissionMode() {
-    globalController.exports.data = { missionStatus: [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING], missionData: [{}, {}, {}, {}] };
+function clearMissionData() {
+    globalController.exports.data.missionStatus = [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING];
+    globalController.exports.data.missionData = [{}, {}, {}, {}];
+}
+
+function displayMissionPrompt(mission: String) {
+    var p: Character = self.getOwner();
+
+    var missionPrompt: Sprite = Sprite.create(getContent("missionPrompt"));
+    missionPrompt.x = Math.abs(stage.getCameraBounds().getX() / 2.75);
+    missionPrompt.y = Math.abs(stage.getCameraBounds().getY() / 2);
+    missionPrompt.scaleX = 3;
+    missionPrompt.scaleY = 3;
+    missionPrompt.currentAnimation = mission;
+    // var container = globalController.getViewRootContainer();
+    // container.addChild(missionPrompt);
+    var dummy: Projectile = match.createProjectile(getContent("dummyProj"), null);
+    globalDummy = dummy;
+
+    dummy.setScaleX(0.1);
+    dummy.setScaleY(0.1);
+
+    camera.getForegroundContainer().addChild(missionPrompt);
+    var totalFrames = missionPrompt.totalFrames * 2;
+    var curr = 0;
+    match.freezeScreen(totalFrames * 2, [self, dummy]);
+    dummy.addTimer(2, totalFrames * 2, function () {
+        curr += 1;
+        if (missionPrompt.currentAnimation == mission && missionPrompt.currentFrame < missionPrompt.totalFrames) {
+            missionPrompt.currentFrame += 1;
+        } else if (curr == totalFrames) {
+            missionPrompt.currentAnimation = "empty";
+        } else if (curr == totalFrames) {
+            missionPrompt.dispose();
+        }
+
+    }, { persistent: true });
+
+    return (totalFrames * 2);
+}
+
+function generateMission(displayString: String, missionFn, duration: Int, rewardFn) {
+    return {
+        displayString: displayString,
+        missionFn: missionFn,
+        duration: duration,
+        rewardFn: rewardFn
+    }
+}
+
+function runMission(mission) {
+    var p: Character = self.getOwner();
+    globalController.exports.data.cooldown = true;
+    Engine.log("Starting Timer");
+    displayMissionPrompt(mission.displayString);
+    mission.missionFn();
+    var timeSprites = [];
+    var curr = 0;
+    p.addTimer(1, mission.duration, function () {
+        curr += 1;
+        var ts = renderTime(createTimeObject(mission.duration - curr), timeSprites, globalController.getViewRootContainer(), 32);
+        var container = camera.getForegroundContainer();
+        container.addChildAt(globalController.getViewRootContainer(), 0);
+        timeSprites = ts;
+
+    }, { persistent: true });
+    p.addTimer(mission.duration, 1, function () {
+        Engine.log("Ending Mission");
+        globalDummy.destroy();
+        Engine.forEach(timeSprites, function (sprite: Sprite, _idx: Int) {
+            sprite.dispose();
+            return true;
+        }, []);
+        Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
+            var port = player.getPlayerConfig().port;
+            var missionStatus = globalController.exports.data.missionStatus[port];
+            if (missionStatus == MISSION_SUCCESS) {
+                mission.rewardFn(player);
+            }
+            return true;
+        }, []);
+        p.addTimer(60 * 60, 1, function () {
+            Engine.log("Startin New Mission");
+            globalController.exports.data.cooldown = false;
+        }, { persistent: true });
+        clearMissionData();
+    }, { persistent: true });
+
+    var totalMissionTime = mission.duration;
+    return totalMissionTime;
+
+
 
 }
+
 
 function enableMissionMode() {
-    globalController.exports.data = { missionStatus: [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING], missionData: [{}, {}, {}, {}] };
+    var p: Character = self.getOwner();
+
+    globalController.exports.data = {
+        missionStatus: [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING],
+        missionData: [{}, {}, {}, {}],
+        cooldown: false
+    };
+    var deal50Regen = generateMission("deal50Regen",
+        function () { Engine.log("Calling Mission FN"); dealDamage(60 * 20, 50); },
+        60 * 20,
+        function (player: Character) { regenBuff(player, 60 * 10); });
+
+    var noHitDamage = generateMission("deal50Regen",
+        function () { Engine.log("Calling Mission FN"); noHit(60 * 15); },
+        60 * 15,
+        function (player: Character) { damageBuff(player, 60 * 10); });
+    var missions = [noHitDamage];
+    p.addTimer(60, -1, function () {
+        if (globalController.exports.data.cooldown == false) {
+            runMission(Random.getChoice(missions));
+        }
+    }, { persistent: true });
+
+
+
+
 
 
 }
+
 
