@@ -1,0 +1,13 @@
+{
+  "export": true,
+  "guid": "0229d32b-4a85-46b8-9625-b9a399bcff02",
+  "id": "dummyProjAnimationStats",
+  "language": "hscript",
+  "pluginMetadata": {
+  },
+  "plugins": [
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

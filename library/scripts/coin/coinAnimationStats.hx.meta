@@ -1,0 +1,13 @@
+{
+  "export": true,
+  "guid": "45d79641-eb6f-4be2-a460-83dcbd6eee63",
+  "id": "coinAnimationStats",
+  "language": "hscript",
+  "pluginMetadata": {
+  },
+  "plugins": [
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

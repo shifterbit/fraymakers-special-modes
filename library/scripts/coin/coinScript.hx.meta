@@ -1,0 +1,18 @@
+{
+  "export": true,
+  "guid": "e0d00402-a675-42f2-a3ce-2b2d609432b9",
+  "id": "coinProjScript",
+  "language": "hscript",
+  "pluginMetadata": {
+    "com.fraymakers.FraymakersMetadata": {
+      "objectType": "PROJECTILE",
+      "version": "0.3.0"
+    }
+  },
+  "plugins": [
+    "com.fraymakers.FraymakersMetadata"
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

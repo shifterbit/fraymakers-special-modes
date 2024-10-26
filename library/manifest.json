@@ -82,12 +82,36 @@
     },
     {
       "id": "controller",
-      "type": "customGameObject"
+      "type": "customGameObject",
+      "animationStatsId": "assisttemplateAnimationStats",
+      "hitboxStatsId": "assisttemplateHitboxStats"
     },
     {
       "id": "specialModeController",
       "type": "assistController",
       "scriptId": "specialModeScript"
+    },
+    {
+      "id": "coinProj",
+      "type": "projectile",
+      "objectStatsId": "coinStats",
+      "animationStatsId": "coinAnimationStats",
+      "hitboxStatsId": "coinHitboxStats",
+      "scriptId": "coinProjScript",
+      "costumesId": "assisttemplateCostumes"
+    },
+    {
+      "id": "number",
+      "type": "customGameObject"
+    },
+    {
+      "id": "dummyProj",
+      "type": "projectile",
+      "objectStatsId": "dummyProjStats",
+      "animationStatsId": "dummyProjAnimationStats",
+      "hitboxStatsId": "dummyProjHitboxStats",
+      "scriptId": "dummyProjScript",
+      "costumesId": "assisttemplateCostumes"
     }
   ]
 }

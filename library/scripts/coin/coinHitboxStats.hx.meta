@@ -1,0 +1,13 @@
+{
+  "export": true,
+  "guid": "7d2a71ca-b6b6-4a7b-b08a-c2eaeafa679d",
+  "id": "coinHitboxStats",
+  "language": "hscript",
+  "pluginMetadata": {
+  },
+  "plugins": [
+  ],
+  "tags": [
+  ],
+  "version": 1
+}
