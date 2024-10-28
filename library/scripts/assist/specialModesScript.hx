@@ -167,8 +167,6 @@ function displayMode() {
         container.addChild(sprite);
         if (isRunning(globalMode)) {
             var filter = new HsbcColorFilter();
-            //filter.hue = Math.toRadians(180);
-            // filter.contrast = 0;
             filter.brightness = -70 / 100;
             sprite.addFilter(filter);
         }
@@ -206,6 +204,21 @@ function createController(mode: String) {
 
 function initialize() {
     globalMode = currentMode();
+    //225 to 315
+    var angles = [];
+    Engine.forCount(360, function (idx: Int) {
+        if (GameObject.angleIsInSpikeThreshold(idx)) {
+            if (angles.length < 2) {
+                angles.push([idx, GameObject.angleIsInSpikeThreshold(idx)]);
+            } else {
+                angles[1] = [idx, GameObject.angleIsInSpikeThreshold(idx)];
+
+
+            }
+        }
+        return true;
+    }, []);
+    Engine.log(angles);
 
 
 }
@@ -244,13 +257,13 @@ function update() {
         }, { persistent: true });
     }
 }
+
 function onTeardown() {
 }
 
 
 function vengeance(event: GameObjectEvent) {
     event.data.self.addDamage(Math.ceil(event.data.hitboxStats.damage / 2));
-
 }
 
 function enableVengeanceMode() {
@@ -263,9 +276,7 @@ function enableVengeanceMode() {
 }
 
 function vampire(event: GameObjectEvent) {
-
     event.data.self.addDamage(Math.ceil(event.data.hitboxStats.damage / -2));
-
 }
 
 function enableVampireMode() {
@@ -297,11 +308,9 @@ function zoomInOnFoe(event: GameObjectEvent) {
     camera.addForcedTarget(foe);
     camera.setMode(1);
 
-
     event.data.self.addTimer(2, 10, function () {
         match.freezeScreen(1, []);
     }, { persistent: true });
-
 
     event.data.self.addTimer(20, 1, function () {
         camera.setMode(0);
@@ -314,15 +323,15 @@ function zoomInOnFoe(event: GameObjectEvent) {
 function toCriticalHIt(event: GameObjectEvent) {
     event.data.hitboxStats.damage = event.data.hitboxStats.damage * 1.7;
     event.data.hitboxStats.knockbackGrowth = event.data.hitboxStats.knockbackGrowth + 10;
+    if (GameObject.angleIsInSpikeThreshold(angle)) {
+        event.data.hitboxStats.buryType = BuryType.PLUNGE;
+    }
 }
 
 function increaseHitStop(event: GameObjectEvent) {
     event.data.hitboxStats.hitstopMultiplier = 5;
     event.data.hitboxStats.hitstopOffset = 10;
     event.data.hitboxStats.selfHitstopOffset = 10;
-
-
-
 }
 
 function enableDramaticMode() {
@@ -330,7 +339,6 @@ function enableDramaticMode() {
     Engine.forEach(players, function (player: Character, _idx: Int) {
         player.addEventListener(GameObjectEvent.HIT_DEALT, zoomInOnFoe, { persistent: true });
         player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, increaseHitStop, { persistent: true });
-
         return true;
     }, []);
 }
@@ -349,7 +357,6 @@ function enableCriticalMode() {
                 player.addEventListener(GameObjectEvent.HIT_DEALT, zoomInOnFoe);
             }
         }, { persistent: true });
-
         return true;
     }, []);
 
@@ -390,7 +397,6 @@ function enableMegaMode() {
         }, { persistent: true });
         return true;
     }, []);
-
 }
 
 function makeMini(obj: GameObject) {
@@ -410,7 +416,6 @@ function enableMiniMode() {
                 makeMini(projectile);
                 return true;
             }, []);
-
         }, { persistent: true });
         return true;
     }, []);
@@ -425,7 +430,6 @@ function exMode(obj: Character) {
         if (airborne) {
             player.preLand(true);
         }
-        var performedCancel = false;
         player.updateCharacterStats({ grabAirType: GrabAirType.GRAB });
         player.addTimer(1, cancelWindow, function () {
 
@@ -438,10 +442,7 @@ function exMode(obj: Character) {
             var neutral = !(up || down || side);
             var special = heldControls.SPECIAL;
             var jump = heldControls.JUMP_ANY || heldControls.JUMP || heldControls.TAP_JUMP;
-            var grab = heldControls.GRAB;
-            var clutch = heldControls.SHIELD2;
 
-            var normal = heldControls.ATTACK;
             if (!usingSpecial) {
                 if (special && side && airborne) {
                     player.playAnimation("special_side_air");
@@ -460,20 +461,15 @@ function exMode(obj: Character) {
                 } else if (special && neutral) {
                     player.playAnimation("special_neutral");
                 }
-                performedCancel = true;
             } else {
                 if (jump && airborne) {
                     obj.setState(CState.JUMP_MIDAIR);
                 } else if (jump && !airborne) {
                     obj.setState(CState.JUMP_IN);
                 }
-
             }
-
         }, { persistent: true });
     }, { persistent: true });
-
-
 }
 
 function enableEXMode() {
@@ -488,21 +484,26 @@ function ssf1Mode(obj: Character) {
     obj.addStatusEffect(StatusEffectType.GROUND_FRICTION_MULTIPLIER, 0.3);
     obj.addStatusEffect(StatusEffectType.AERIAL_FRICTION_MULTIPLIER, 0.07);
     obj.addStatusEffect(StatusEffectType.ATTACK_HITSTOP_MULTIPLIER, 0);
+    obj.addStatusEffect(StatusEffectType.ATTACK_SELF_HITSTOP_MULTIPLIER, 0);
+
     // obj.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 0);
 
     obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_UP);
     obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_FORWARD);
     obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_DOWN);
 
-    obj.updateCharacterStats({ airdashLimit: 0 });
+    obj.updateCharacterStats({ airdashLimit: 0, shieldScale: 0.008 });
 
     obj.addTimer(2, -1, function () {
         obj.reactivateHitboxes();
-
     }, { persistent: true });
+
+
     obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
         event.data.hitboxStats.hitEffectOverride = "";
+        event.data.hitboxStats.stackKnockback = false;
     }, { persistent: true });
+
     obj.addTimer(0.5, -1, function () {
         obj.setAirdashCount(0);
         var grounded = obj.isOnFloor();
@@ -515,7 +516,7 @@ function ssf1Mode(obj: Character) {
         }
         var pressingRight = obj.getHeldControls().RIGHT;
         var pressingLeft = obj.getHeldControls().LEFT;
-        if ((obj.isFacingLeft() && pressingRight) || (obj.isFacingRight() && pressingLeft)) {
+        if ((obj.isFacingLeft() && pressingRight) || (obj.isFacingRight() && pressingLeft) && !obj.getState(CState.KO) && obj.getHitstun() == 0) {
             obj.flipX(obj.getX());
             if (obj.isFacingLeft()) {
                 obj.faceRight();
@@ -531,7 +532,6 @@ function ssf1Mode(obj: Character) {
                 } else {
                     obj.endAnimation();
                     obj.toState(CState.WALK_LOOP);
-
                 }
                 //obj.setXVelocity(-obj.getXVelocity());
             } else {
@@ -545,7 +545,6 @@ function ssf1Mode(obj: Character) {
         }
 
     }, { persistent: true });
-
 }
 
 function enableSSF1Mode() {
@@ -560,54 +559,58 @@ function enableSSF1Mode() {
 
 }
 
-function disableAllAttacks(obj: Character) {
+function disableAllAttacks(player: Character) {
     //obj.getStatusEffectByType(StatusEffectType.)
     var tag = "ultimateAirDodge";
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.AERIAL_NEUTRAL, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.AERIAL_FORWARD, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.AERIAL_DOWN, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.AERIAL_BACK, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.AERIAL_UP, { tag: tag });
+    var disabledActions = [
+        CharacterActions.AERIAL_NEUTRAL,
+        CharacterActions.AERIAL_FORWARD,
+        CharacterActions.AERIAL_DOWN,
+        CharacterActions.AERIAL_BACK,
+        CharacterActions.AERIAL_UP,
+        CharacterActions.SPECIAL_UP,
+        CharacterActions.SPECIAL_DOWN,
+        CharacterActions.SPECIAL_SIDE,
+        CharacterActions.SPECIAL_NEUTRAL,
+        CharacterActions.STRONG_DOWN,
+        CharacterActions.STRONG_FORWARD,
+        CharacterActions.STRONG_UP,
+        CharacterActions.JAB,
+        CharacterActions.TILT_FORWARD,
+        CharacterActions.TILT_DOWN,
+        CharacterActions.TILT_UP
+    ];
 
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_UP, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_DOWN, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_SIDE, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_NEUTRAL, { tag: tag });
-
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_DOWN, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_FORWARD, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_UP, { tag: tag });
-
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.JAB, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.TILT_FORWARD, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.TILT_DOWN, { tag: tag });
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.TILT_UP, { tag: tag });
+    Engine.forEach(disabledActions, function (action: Int, _idx: Int) {
+        player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: tag });
+        return true;
+    }, []);
 
 
 }
-function enableAirActions(obj: Character, tag: String) {
+function enableAirActions(player: Character, tag: String) {
     return function (event: GameObjectEvent) {
-        var disabledStatus = obj.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
+        var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
         Engine.forEach(disabledStatus, function (effect: any, _idx: Int) {
-            obj.removeStatusEffect(StatusEffectType.DISABLE_ACTION, effect.id);
+            player.removeStatusEffect(StatusEffectType.DISABLE_ACTION, effect.id);
         }, []);
     }
 }
 
-function ultimateMode(obj: Character) {
+function ultimateMode(player: Character) {
     var tag = "ultimateAirDodge";
-    obj.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
-    obj.addEventListener(GameObjectEvent.LAND, enableAirActions(obj, tag), { persistent: true });
-    obj.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
+    player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
+    player.addEventListener(GameObjectEvent.LAND, enableAirActions(player, tag), { persistent: true });
+    player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
     var neutralAirDash = function () {
-        obj.setXSpeed(0);
-        obj.setYSpeed(0);
+        player.setXSpeed(0);
+        player.setYSpeed(0);
     };
-    var dodgeRollSpeed = obj.getCharacterStat("dodgeRollSpeed");
-    var jumps = obj.getDoubleJumpCount();
-    obj.addTimer(1, -1, function () {
-        var disabledStatus = obj.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
-        var heldControls = obj.getHeldControls();
+    var dodgeRollSpeed = player.getCharacterStat("dodgeRollSpeed");
+    var jumps = player.getDoubleJumpCount();
+    player.addTimer(1, -1, function () {
+        var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
+        var heldControls = player.getHeldControls();
         var up = heldControls.UP;
         var down = heldControls.DOWN;
         var right = heldControls.RIGHT;
@@ -617,62 +620,62 @@ function ultimateMode(obj: Character) {
 
         if (neutral
             && shields
-            && obj.inStateGroup(CStateGroup.JUMP)
-            && obj.getHitstun() == 0
-            && obj.getHitstop() == 0) {
-            obj.setXSpeed(0.1);
-            obj.setYSpeed(-0.1);
-            obj.updateCharacterStats({ airdashSpeedCap: 0.001, airdashStartupLength: 0, airdashFullspeedLength: 40 });
-            obj.playAnimation("spot_dodge");
+            && player.inStateGroup(CStateGroup.JUMP)
+            && player.getHitstun() == 0
+            && player.getHitstop() == 0) {
+            player.setXSpeed(0.1);
+            player.setYSpeed(-0.1);
+            player.updateCharacterStats({ airdashSpeedCap: 0.001, airdashStartupLength: 0, airdashFullspeedLength: 40 });
+            player.playAnimation("spot_dodge");
 
 
 
-        } else if (!obj.inStateGroup(CStateGroup.AIRDASH)) {
-            obj.updateCharacterStats({ airdashSpeedCap: 6, airdashStartupLength: 3, airdashFullspeedLength: 30 });
+        } else if (!player.inStateGroup(CStateGroup.AIRDASH)) {
+            player.updateCharacterStats({ airdashSpeedCap: 6, airdashStartupLength: 3, airdashFullspeedLength: 30 });
         }
-        if (obj.inStateGroup(CStateGroup.AIRDASH)) {
+        if (player.inStateGroup(CStateGroup.AIRDASH)) {
             if (disabledStatus == null) {
-                disableAllAttacks(obj);
+                disableAllAttacks(player);
                 Engine.log("Disabled Attacks");
                 Engine.log("Disabled Jumps");
                 if (neutral) {
-                    obj.resetMomentum();
-                    obj.updateCharacterStats({ dodgeRollSpeed: 0 });
-                    obj.toState(CState.AIRDASH_INITIAL, "roll");
+                    player.resetMomentum();
+                    player.updateCharacterStats({ dodgeRollSpeed: 0 });
+                    player.toState(CState.AIRDASH_INITIAL, "roll");
                 }
             }
         }
-        if (obj.isOnFloor()) {
-            obj.updateCharacterStats({ dodgeRollSpeed: dodgeRollSpeed });
+        if (player.isOnFloor()) {
+            player.updateCharacterStats({ dodgeRollSpeed: dodgeRollSpeed });
 
         }
 
-        if (obj.inState(CState.AIRDASH_DECELERATING)) {
+        if (player.inState(CState.AIRDASH_DECELERATING)) {
             Engine.log("Entered End");
-            obj.setXSpeed(0);
-            obj.setYSpeed(0);
-            obj.resetMomentum();
-            obj.setDoubleJumpCount(0);
-            Engine.log(obj.getDoubleJumpCount());
+            player.setXSpeed(0);
+            player.setYSpeed(0);
+            player.resetMomentum();
+            player.setDoubleJumpCount(0);
+            Engine.log(player.getDoubleJumpCount());
 
         }
-        if (obj.getPreviousState() == CState.AIRDASH_FULL_SPEED || obj.getPreviousStateGroup(CStateGroup.AIRDASH)) {
+        if (player.getPreviousState() == CState.AIRDASH_FULL_SPEED || player.getPreviousStateGroup(CStateGroup.AIRDASH)) {
             Engine.log("LEFT AIR DASH");
-            obj.endAnimation();
-            obj.toState(CState.FALL);
-            var gravity = obj.getGameObjectStat("gravity");
+            player.endAnimation();
+            player.toState(CState.FALL);
+            var gravity = player.getGameObjectStat("gravity");
             var dodgeTime = 25 / gravity;
-            obj.addTimer(dodgeTime, 1, function () {
-                enableAirActions(obj, tag)(null);
-                Engine.log(obj.getDoubleJumpCount());
-                obj.setDoubleJumpCount(jumps);
+            player.addTimer(dodgeTime, 1, function () {
+                enableAirActions(player, tag)(null);
+                Engine.log(player.getDoubleJumpCount());
+                player.setDoubleJumpCount(jumps);
                 Engine.log([gravity, dodgeTime]);
             }, { persistent: true });
 
         }
 
-        if (obj.inStateGroup(CStateGroup.AIRDASH)) {
-            obj.updateAnimationStats({ bodyStatus: BodyStatus.INTANGIBLE });
+        if (player.inStateGroup(CStateGroup.AIRDASH)) {
+            player.updateAnimationStats({ bodyStatus: BodyStatus.INTANGIBLE });
 
         }
 
@@ -681,54 +684,52 @@ function ultimateMode(obj: Character) {
 
 }
 function enableUltimateMode() {
-    Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
+    Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
         ultimateMode(player);
         return true;
     }, []);
 
 
 }
-function smash64Mode(obj: Character) {
-    obj.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.5);
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_SIDE);
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_DOWN);
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_UP);
-    obj.updateCharacterStats({ airdashLimit: 0 });
+function smash64Mode(player: Character) {
+    player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.5);
+    player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_SIDE);
+    player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_DOWN);
+    player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_UP);
+    player.updateCharacterStats({ airdashLimit: 0, shieldScale: 0.008 });
 
 
-    obj.addTimer(1, -1, function () {
-        if (obj.inStateGroup(CStateGroup.ATTACK)) {
-            switch (obj.getState()) {
+    player.addTimer(1, -1, function () {
+        if (player.inStateGroup(CStateGroup.ATTACK)) {
+            switch (player.getState()) {
                 case CState.STRONG_DOWN_CHARGE: {
-                    obj.toState(CState.STRONG_DOWN_ATTACK);
+                    player.toState(CState.STRONG_DOWN_ATTACK);
                 };
                 case CState.STRONG_UP_CHARGE: {
-                    obj.toState(CState.STRONG_UP_ATTACK);
+                    player.toState(CState.STRONG_UP_ATTACK);
                 };
                 case CState.STRONG_FORWARD_CHARGE: {
-                    obj.toState(CState.STRONG_FORWARD_ATTACK);
+                    player.toState(CState.STRONG_FORWARD_ATTACK);
                 };
                 default: { };
             }
         }
-        if (obj.inState(CState.SPOT_DODGE)) {
-            obj.endAnimation();
-            obj.toState(CState.SHIELD_LOOP);
+        if (player.inState(CState.SPOT_DODGE)) {
+            player.endAnimation();
+            player.toState(CState.SHIELD_LOOP);
         }
     }, { persistent: true });
 
-    obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
+    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
         event.data.hitboxStats.directionalInfluence = false;
     }, { persistent: true });
 }
 
 function enableSmash64() {
-    Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
+    Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
         smash64Mode(player);
         return true;
     }, []);
-
-
 }
 
 
@@ -742,19 +743,39 @@ function releaseCoinsEvent(event: GameObjectEvent) {
         releaseCoins(target, Math.round(damage));
     }
 }
+
+
+function getCoins(player: Character) {
+    var port = player.getPlayerConfig().port;
+    return globalController.exports.data.coins[port];
+
+}
+
+function setCoins(player: Character, coins: Int) {
+    var port = player.getPlayerConfig().port;
+    globalController.exports.data.coins[port] = Math.round(coins);
+    var coinSprites = globalController.exports.data.coinSprites[port];
+    refreshCoins(coinSprites, newCoins);
+
+}
+function addCoins(player: Character, coins: Int) {
+    var port = player.getPlayerConfig().port;
+    globalController.exports.data.coins[port] += coins;
+    var coinSprites = globalController.exports.data.coinSprites[port];
+    refreshCoins(coinSprites, newCoins);
+}
+
 function coinMode(player: Character) {
     var coinSprites = setupCoins(player);
     var port = player.getPlayerConfig().port;
     globalController.exports.data.coinSprites[port] = coinSprites;
     player.addEventListener(CharacterEvent.RESPAWN, function (event: CharacterEvent) {
         var target: Character = event.data.self;
-        var targetPort = target.getPlayerConfig().port;
-        var coins = globalController.exports.data.coins[targetPort];
+        var coins = getCoins(target);
         var newCoins = Math.round(coins / 2);
-        globalController.exports.data.coins[targetPort] = newCoins;
-        var coinSprites = globalController.exports.data.coinSprites[targetPort];
-        refreshCoins(coinSprites, newCoins);
+        setCoins(target, newCoins);
     }, { persistent: true });
+
     player.addEventListener(GameObjectEvent.HIT_RECEIVED, releaseCoinsEvent, { persistent: true });
 
 }
@@ -767,19 +788,17 @@ function releaseCoins(player: Character, damage: Int) {
     var numSilver = Math.floor(remaining / 5);
     remaining -= (numSilver * 5);
     var numBronze = remaining;
-    var recalculatedTotal = (numBronze * 1) + (numSilver * 5) + (numGold * 10);
+    // var recalculatedTotal = (numBronze * 1) + (numSilver * 5) + (numGold * 10);
     var coinDamageListener = function (damage: Int) {
         return function (event: GameObjectEvent) {
             if (event.data.foe.getType() == EntityType.CHARACTER) {
                 var foe: Character = event.data.foe;
                 var foePort = foe.getPlayerConfig().port;
                 globalController.exports.data.coins[foePort] += Math.round(damage);
-                if (globalController.exports.data.coins[foePort] >= 9999) {
-                    globalController.exports.data.coins[foePort] = 9999;
+                addCoins(player, damage);
+                if (getCoins(foe) >= 9999) {
+                    setCoins(foe, 9999);
                 }
-                var coins = globalController.exports.data.coins[foePort];
-                var coinSprites = globalController.exports.data.coinSprites[foePort];
-                refreshCoins(coinSprites, coins);
                 event.data.self.destroy();
             }
         };
@@ -787,7 +806,8 @@ function releaseCoins(player: Character, damage: Int) {
     var goldListener = coinDamageListener(10);
     var silverListener = coinDamageListener(5);
     var bronzeListener = coinDamageListener(1);
-    Engine.forCount(numGold, function (idx: Int) {
+
+    Engine.forCount(numGold, function (_idx: Int) {
         var proj = match.createProjectile(coinResource, player);
         proj.addEventListener(GameObjectEvent.HIT_DEALT, goldListener, { persistent: true });
         proj.playAnimation("gold");
@@ -795,14 +815,14 @@ function releaseCoins(player: Character, damage: Int) {
         proj.setScaleY(4);
     }, []);
 
-    Engine.forCount(numSilver, function (idx: Int) {
+    Engine.forCount(numSilver, function (_idx: Int) {
         var proj = match.createProjectile(coinResource, player);
         proj.addEventListener(GameObjectEvent.HIT_DEALT, silverListener, { persistent: true });
         proj.playAnimation("silver");
         proj.setScaleX(3);
         proj.setScaleY(3);
     }, []);
-    Engine.forCount(numBronze, function (idx: Int) {
+    Engine.forCount(numBronze, function (_idx: Int) {
         var proj = match.createProjectile(coinResource, player);
         proj.addEventListener(GameObjectEvent.HIT_DEALT, bronzeListener, { persistent: true });
         proj.playAnimation("bronze");
@@ -863,8 +883,9 @@ function coinModeWinners() {
         }
         return true;
     }, []);
+
     if (highest == 0) {
-        return match.getPlayers();
+        return players;
     }
 
     var winners = [winningPlayer];
@@ -882,7 +903,6 @@ function coinModeWinners() {
     return winners;
 }
 
-//function teleportToOppositeBlastZone
 
 function pacmanMode(duration: Int) {
     var deathBounds = stage.getDeathBounds();
@@ -901,61 +921,46 @@ function pacmanMode(duration: Int) {
             var hitDownBlastZone = y >= maxY * 0.9;
             if (hitRightBlastZone) {
                 player.setX(minX + Math.abs(minX * 0.2));
-            }
-            if (hitLeftBlastZone) {
+            } else if (hitLeftBlastZone) {
                 player.setX(maxX - Math.abs(maxX * 0.2));
-            }
-            if (hitUpBlastZone) {
+            } else if (hitUpBlastZone) {
                 player.setY(maxY - Math.abs(maxY * 0.2));
-            }
-            if (hitDownBlastZone) {
+            } else if (hitDownBlastZone) {
                 player.setY(minY + Math.abs(minY * 0.2));
             }
-
         }, { persistent: true });
 
-
     }, []);
-
-
-
-
 }
 
 function createTimeObject(frames: Int) {
     var timeString = Engine.framesToTimeString(frames);
-    Engine.log(timeString);
     var timeObj = parseTimeString(timeString);
-    Engine.log(timeObj);
     return timeObj;
 }
 
 
 function enableCoins() {
+    globalController.exports.data = { coins: [0, 0, 0, 0], coinSprites: [[], [], [], []], spawnPositions: [{}, {}, {}, {}] };
+
     if (match.getMatchSettingsConfig().time > 0) {
         timeLeft.set(match.getMatchSettingsConfig().time * 60);
     }
-    var deathBounds = stage.getDeathBounds();
-
     var p: Character = self.getOwner();
     var players = match.getPlayers();
     p.addTimer(70, 1, function () {
-
         var timeSprites = [];
         p.addTimer(1, -1, function () {
+            timeLeft.dec();
             if (match.getMatchSettingsConfig().time == 0) {
-                var frames = timeLeft.dec();
+                var frames = timeLeft.get();
                 var timeObj = createTimeObject(frames);
-
                 var ts = renderTime(timeObj, timeSprites, globalController.getViewRootContainer(), 0);
                 var container = camera.getForegroundContainer();
                 container.rotation = 0;
                 container.addChildAt(globalController.getViewRootContainer(), 0);
                 timeSprites = ts;
-            } else {
-                timeLeft.dec();
             }
-
 
             if (timeLeft.get() == 30) {
 
@@ -982,7 +987,6 @@ function enableCoins() {
                             event.data.hitboxStats.damage = 0;
                             event.data.hitboxStats.baseKnockback = 0;
                         }, { persistent: true });
-
                         foe.setLives(1);
                         foe.addTimer(20, 5, function () {
                             foe.setX(99999);
@@ -990,6 +994,8 @@ function enableCoins() {
                         }, { persistent: true });
                         return true;
                     }, []);
+
+
                 } else {
                     Engine.forEach(players, function (player: Character, _idx: Int) {
                         player.setLives(1);
@@ -1001,6 +1007,7 @@ function enableCoins() {
                         }, { persistent: true });
                         return true;
                     }, []);
+
                     Engine.forEach(winners, function (player: Character, _idx: Int) {
                         var port = player.getPlayerConfig().port;
                         var startingPos = globalController.exports.data.spawnPositions[port];
@@ -1009,11 +1016,9 @@ function enableCoins() {
                         player.setY(startingPos.y);
                         player.resetMomentum();
                         player.setDamage(300);
-                        player.setLives(2);
-                        player.setX(99999999);
+                        player.setLives(1);
                         player.addTimer(1, -1, function () {
                             if (player.getDamage() < 300) {
-                                player.takeHit({ damage: 300, true: false, baseKnockback: 0 });
                                 player.setDamage(300);
                                 player.validateHit({});
                             }
@@ -1033,10 +1038,6 @@ function enableCoins() {
         }, { persistent: true, condition: function () { return timeLeft.get() >= 1; } });
     }, { persistent: true });
 
-
-
-
-    globalController.exports.data = { coins: [0, 0, 0, 0], coinSprites: [[], [], [], []], spawnPositions: [{}, {}, {}, {}] };
     Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
         var port = player.getPlayerConfig().port;
         globalController.exports.data.spawnPositions[port] = { x: player.getX(), y: player.getY() };
@@ -1086,12 +1087,12 @@ function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset:
             return true;
         }, []);
     }
+    sprites = sprites.slice(untrimmed, sprites.length);
+
     var makeSprite = function (frame: Int, pos: Int, animation: String) {
         var sprite: Sprite = Sprite.create(resource);
         var filter = new HsbcColorFilter();
         filter.hue = 25;
-        //filter.hue = -90;
-
         sprite.addFilter(filter);
         sprite.currentAnimation = animation;
         sprite.x = 500 + (baseOffset) * (1 + pos);
@@ -1111,7 +1112,6 @@ function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset:
         }
     }
 
-    sprites = sprites.slice(untrimmed, sprites.length);
     var curr = 0;
     var minutePos = 0;
     while (minutePos < minutes.length) {
@@ -1157,23 +1157,6 @@ function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset:
 }
 
 
-
-
-function failedMission(player: Character) {
-    var port = player.getPlayerConfig().port;
-    var failed = globalController.exports.data.missionStatus[port] == MISSION_FAIL;
-
-    return failed;
-}
-
-function failedMission(player: Character) {
-    var port = player.getPlayerConfig().port;
-    var succeeded = globalController.exports.data.missionStatus[port] == MISSION_SUCCESS;
-
-    return succeeded;
-}
-
-
 function regenBuff(player: Character, duration: Int) {
     var outerGlow = new GlowFilter();
     outerGlow.color = 0xff8c69;
@@ -1181,20 +1164,19 @@ function regenBuff(player: Character, duration: Int) {
     innerGlow.color = 0xFFFFFF;
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
+
     var uid = player.addTimer(20, duration / 20, function () {
         player.addDamage(-1);
     }, { persistent: true });
-    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+
+    var removeBuff = function () {
         player.removeTimer(uid);
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
-    }, { persistent: true });
+    }
 
-
-    player.addTimer(duration, 1, function () {
-        player.removeFilter(innerGlow);
-        player.removeFilter(outerGlow);
-    }, { persistent: true });
+    player.addEventListener(CharacterEvent.KNOCK_OUT, removeBuff, { persistent: true });
+    player.addTimer(duration, 1, removeBuff, { persistent: true });
 }
 
 function mobilityBuff(player: Character, duration: Int) {
@@ -1205,55 +1187,95 @@ function mobilityBuff(player: Character, duration: Int) {
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
     var tag = "speedBuff";
-    var airSpeed = player.addStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, 1.1, { tag: tag });
-    var groundSpeed = player.addStatusEffect(StatusEffectType.GROUND_SPEED_ACCELERATION_MULTIPLIER, 1.1, { tag: tag });
+    var airSpeed = player.addStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, 1.2, { tag: tag });
+    var groundSpeed = player.addStatusEffect(StatusEffectType.GROUND_SPEED_ACCELERATION_MULTIPLIER, 1.2, { tag: tag });
+    var jump = player.addStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, 1.2, { tag: tag });
+    var doubleJump = player.addStatusEffect(StatusEffectType.DOUBLE_JUMP_SPEED_MULTIPLIER, 1.2, { tag: tag });
+    var fastFall = player.addStatusEffect(StatusEffectType.FAST_FALL_SPEED_MULTIPLIER, 1.2, { tag: tag });
 
-    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+    var removeBuff = function () {
         player.removeStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, airSpeed.id);
-        player.removeStatusEffect(GROUND_SPEED_ACCELERATION_MULTIPLIER, groundSpeed.id);
+        player.removeStatusEffect(StatusEffectType.GROUND_SPEED_ACCELERATION_MULTIPLIER, groundSpeed.id);
+        player.removeStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, jump.id);
+        player.removeStatusEffect(StatusEffectType.DOUBLE_JUMP_SPEED_MULTIPLIER, doubleJump.id);
+        player.removeStatusEffect(StatusEffectType.FAST_FALL_SPEED_MULTIPLIER, fastFall.id);
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
-    }, { persistent: true });
+    }
 
-    player.addTimer(duration, 1, function () {
-        player.removeStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, airSpeed.id);
-        player.removeStatusEffect(GROUND_SPEED_ACCELERATION_MULTIPLIER, groundSpeed.id);
-        player.removeFilter(innerGlow);
-        player.removeFilter(outerGlow);
-    }, { persistent: true });
+    player.addEventListener(CharacterEvent.KNOCK_OUT, removeBuff, { persistent: true });
+    player.addTimer(duration, 1, removeBuff, { persistent: true });
 }
 
 
-function protectionbuff(player: Character, duration: Int) {
+function defenseBuff(player: Character, duration: Int) {
     var outerGlow = new GlowFilter();
     outerGlow.color = 0x00bfff;
     var innerGlow = new GlowFilter();
     innerGlow.color = 0xFFFFFF;
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
-    var hitReceived = function (event: GameObjectEvent) {
-        player.setKnockback(player.getKnockback() * 0.9);
-        var damageDiff = Math.ceil(-0.75 * event.data.hitboxStats.damage);
-        player.addDamage(damageDiff);
-    };
-    player.addEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived, { persistent: true });
+    var statusTimer = player.applyGlobalBodyStatus(BodyStatus.DAMAGE_RESISTANCE, duration);
+    player.addTimer(1, duration, function () {
+        player.updateAnimationStats({ bodyStatusStrength: 5 });
+    }, { persistent: true });
 
-    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+    var hitReceived = function (event: GameObjectEvent) {
+        player.addDamage(-0.5 * event.data.hitboxStats.damage);
+    };
+
+    var removeBuff = function () {
         player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived);
+        statusTimer.finish();
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
-    }, { persistent: true });
+    }
+
+
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived, { persistent: true });
+    player.addEventListener(CharacterEvent.KNOCK_OUT, removeBuff, { persistent: true });
+    player.addTimer(duration, 1, removeBuff, { persistent: true });
+
+}
+
+function jumpCancels(player: Character, duration: Int) {
+    var outerGlow = new GlowFilter();
+    outerGlow.color = 0x000000;
+    var innerGlow = new GlowFilter();
+    innerGlow.color = 0xFFFFFF;
+    player.addFilter(innerGlow);
+    player.addFilter(outerGlow);
+    var allowCancels = function (event: GameObjectEvent) {
+        var player: Character = event.data.self;
+        var cancelWindow = event.data.hitboxStats.hitstop + 10;
+        var airborne = !player.isOnFloor();
+
+        if (!player.inStateGroup(CStateGroup.GRAB)) {
+            player.addTimer(1, cancelWindow, function () {
+                var heldControls = player.getHeldControls();
+                var jump = heldControls.JUMP_ANY || heldControls.JUMP || heldControls.TAP_JUMP;
+
+                if (jump && airborne) {
+                    player.setState(CState.JUMP_MIDAIR);
+                } else if (jump && !airborne) {
+                    player.setState(CState.JUMP_IN);
+                }
+            }, { persistent: true });
+        }
+    };
+    player.addEventListener(GameObjectEvent.HIT_DEALT, allowCancels, { persistent: true });
 
     player.addTimer(duration, 1, function () {
-        player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived);
+        player.removeEventListener(GameObjectEvent.HIT_DEALT, allowCancels);
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
     }, { persistent: true });
+
 
 }
 
 
-function damageBuff(player: Character, duration: Int) {
+function attackBuff(player: Character, duration: Int) {
     var outerGlow = new GlowFilter();
     outerGlow.color = 0xFF0000;
     var innerGlow = new GlowFilter();
@@ -1265,44 +1287,116 @@ function damageBuff(player: Character, duration: Int) {
     var hitstun = player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.1, { tag: tag });
     var knockback = player.addStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, 1.1, { tag: tag });
 
-    player.addEventListener(CharacterEvent.KNOCK_OUT, function () {
+    var disableBuff = function () {
         player.removeStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, damage.id);
         player.removeStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, hitstun.id);
         player.removeStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, knockback.id);
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
-    }, { persistent: true });
+    }
 
-    player.addTimer(duration, 1, function () {
-        player.removeStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, damage.id);
-        player.removeStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, hitstun.id);
-        player.removeStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, knockback.id);
-        player.removeFilter(innerGlow);
-        player.removeFilter(outerGlow);
-    }, { persistent: true });
+    player.addEventListener(CharacterEvent.KNOCK_OUT, disableBuff, { persistent: true });
+    player.addTimer(duration, 1, disableBuff, { persistent: true });
 }
 
 
+function getMissionStatus(player: Character) {
+    var port = player.getPlayerConfig().port;
+    return globalController.exports.data.missionStatus[port];
+}
 
 
-function noHit(duration: Int) {
+function setMissionStatus(player: Character, status: Int) {
+    var port = player.getPlayerConfig().port;
+    globalController.exports.data.missionStatus[port] = status;
+}
+
+function landStrongs(times: Int, duration: Int) {
     var players: Array<Character> = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        var port = player.getPlayerConfig().port;
-        player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
-            var port = player.getPlayerConfig().port;
-            globalController.exports.data.missionStatus[port] = MISSION_FAIL;
-        }, { persistent: true });
-        player.addTimer(duration, 1, function () {
-            if (!failedMission(player)) {
-                globalController.exports.data.missionStatus[port] = MISSION_SUCCESS;
+        var prevTime = match.getElapsedFrames();
+        var count = [0];
+        var hitDealt = function (event: GameObjectEvent) {
+            var attacker: Character = event.data.self;
+            var currTime = match.getElapsedFrames();
+            if (
+                (attacker.inState(CState.STRONG_FORWARD_ATTACK)
+                    || attacker.inState(CState.STRONG_DOWN_ATTACK)
+                    || attacker.inState(CState.STRONG_UP_ATTACK))
+                && (currTime - prevTime) > 100) {
+                prevTime = currTime;
+                count[0] += 1;
             }
+        };
+
+        player.addEventListener(GameObjectEvent.HIT_DEALT, hitDealt, { persistent: true });
+        player.addTimer(duration, 1, function () {
+            player.removeEventListener(GameObjectEvent.HIT_DEALT, hitDealt);
+            if (count[0] >= times) {
+                setMissionStatus(player, MISSION_SUCCESS);
+            } else {
+                setMissionStatus(player, MISSION_FAIL);
+            }
+        }, { persistent: true });
+
+    }, []);
+
+
+
+
+}
+function noHit(duration: Int) {
+    var players: Array<Character> = match.getPlayers();
+    Engine.log("Players: " + players);
+    Engine.forEach(players, function (player: Character, _idx: Int) {
+        player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
+            setMissionStatus(event.data.self, MISSION_FAIL);
+        }, { persistent: true });
+        player.addTimer(duration - 3, 1, function () {
+            if (getMissionStatus(player) != MISSION_FAIL) {
+                setMissionStatus(player, MISSION_SUCCESS);
+            }
+
         }, { persistent: true });
         return true;
     }, []);
 }
 
+function landedParry(duration: Int) {
+    var players: Array<Character> = match.getPlayers();
+    Engine.forEach(players, function (player: Character, _idx: Int) {
+        match.addEventListener(ScoreEvent.PARRY, function (event: ScoreEvent) {
+            setMissionStatus(event.data.self, MISSION_SUCCESS);
+        }, { persistent: true });
+        player.addTimer(duration - 3, 1, function () {
+            if (getMissionStatus(player) != MISSION_SUCCESS) {
+                setMissionStatus(player, MISSION_FAIL);
+            }
 
+        }, { duration: true });
+        return true;
+    }, []);
+}
+
+function landedSpikes(count: Int, duration: Int) {
+    var players: Array<Character> = match.getPlayers();
+    Engine.forEach(players, function (player: Character, _idx: Int) {
+        var i = [0];
+        match.addEventListener(ScoreEvent.SPIKE, function (event: ScoreEvent) {
+            i[0] += 1;
+            if (i[0] >= count) {
+                setMissionStatus(player, MISSION_SUCCESS);
+            }
+        }, { persistent: true });
+
+        player.addTimer(duration, 1, function () {
+            if (getMissionStatus(player) != MISSION_SUCCESS) {
+                setMissionStatus(player, MISSION_FAIL);
+            }
+        }, { duration: true });
+        return true;
+    }, []);
+}
 
 function dealDamage(duration: Int, damage: Int) {
     Engine.log("dealDamage Mission begun");
@@ -1314,17 +1408,13 @@ function dealDamage(duration: Int, damage: Int) {
 
         Engine.log("Adding damage: " + [event.data.hitboxStats.damage, globalController.exports.data]);
         globalController.exports.data.missionData[port].damage += event.data.hitboxStats.damage;
-        if (globalController.exports.data.missionData[port].damage >= damage) {
-            globalController.exports.data.missionStatus[port] = MISSION_SUCCESS;
-        } else {
-            globalController.exports.data.missionStatus[port] = MISSION_FAIL;
+        if (globalController.exports.data.missionData[port].damage >= damage && getMissionStatus(player) != MISSION_FAIL) {
+            setMissionStatus(player, MISSION_SUCCESS);
         }
-
     }
     Engine.forEach(players, function (player: Character, _idx: Int) {
         var port = player.getPlayerConfig().port;
         globalController.exports.data.missionData[port] = { damage: 0 };
-
         player.addEventListener(GameObjectEvent.HIT_DEALT, addDamage, { persistent: true });
         player.addTimer(duration, 1, function () {
             player.removeEventListener(GameObjectEvent.HIT_DEALT, addDamage);
@@ -1333,13 +1423,13 @@ function dealDamage(duration: Int, damage: Int) {
     }, []);
 
 }
+
 function clearMissionData() {
     globalController.exports.data.missionStatus = [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING];
     globalController.exports.data.missionData = [{}, {}, {}, {}];
 }
 
 function displayMissionPrompt(mission: String) {
-    var p: Character = self.getOwner();
 
     var missionPrompt: Sprite = Sprite.create(getContent("missionPrompt"));
     missionPrompt.x = Math.abs(stage.getCameraBounds().getX() / 2.75);
@@ -1347,8 +1437,6 @@ function displayMissionPrompt(mission: String) {
     missionPrompt.scaleX = 3;
     missionPrompt.scaleY = 3;
     missionPrompt.currentAnimation = mission;
-    // var container = globalController.getViewRootContainer();
-    // container.addChild(missionPrompt);
     var dummy: Projectile = match.createProjectile(getContent("dummyProj"), null);
     globalDummy = dummy;
 
@@ -1391,72 +1479,95 @@ function runMission(mission) {
     mission.missionFn();
     var timeSprites = [];
     var curr = 0;
+
     p.addTimer(1, mission.duration, function () {
         curr += 1;
         var ts = renderTime(createTimeObject(mission.duration - curr), timeSprites, globalController.getViewRootContainer(), 32);
         var container = camera.getForegroundContainer();
         container.addChildAt(globalController.getViewRootContainer(), 0);
         timeSprites = ts;
-
     }, { persistent: true });
+
     p.addTimer(mission.duration, 1, function () {
-        Engine.log("Ending Mission");
         globalDummy.destroy();
+
         Engine.forEach(timeSprites, function (sprite: Sprite, _idx: Int) {
             sprite.dispose();
             return true;
         }, []);
+
         Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
-            var port = player.getPlayerConfig().port;
-            var missionStatus = globalController.exports.data.missionStatus[port];
-            if (missionStatus == MISSION_SUCCESS) {
+            Engine.log(player);
+            Engine.log(globalController.exports.data);
+
+            if (getMissionStatus(player) == MISSION_SUCCESS) {
                 mission.rewardFn(player);
             }
             return true;
         }, []);
-        p.addTimer(60 * 60, 1, function () {
-            Engine.log("Startin New Mission");
+
+        p.addTimer(60 * 35, 1, function () {
+            Engine.log("Starting New Mission");
+            clearMissionData();
             globalController.exports.data.cooldown = false;
         }, { persistent: true });
-        clearMissionData();
+
     }, { persistent: true });
 
     var totalMissionTime = mission.duration;
     return totalMissionTime;
-
-
-
 }
 
 
 function enableMissionMode() {
     var p: Character = self.getOwner();
+    var players: Character = match.getPlayers();
+    Engine.forEach(players, function (player: Character, _idx: Int) {
+        player.addEventListener(CharacterEvent.KNOCK_OUT, function (event: CharacterEvent) {
+            setMissionStatus(player, MISSION_FAIL);
+        }, { persistent: true });
+        return true;
+    }, []);
 
     globalController.exports.data = {
         missionStatus: [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING],
         missionData: [{}, {}, {}, {}],
         cooldown: false
     };
+
     var deal50Regen = generateMission("deal50Regen",
-        function () { Engine.log("Calling Mission FN"); dealDamage(60 * 20, 50); },
+        function () { dealDamage(60 * 20, 50); },
         60 * 20,
         function (player: Character) { regenBuff(player, 60 * 10); });
 
-    var noHitDamage = generateMission("deal50Regen",
-        function () { Engine.log("Calling Mission FN"); noHit(60 * 15); },
+    var noHitDefense = generateMission("noHitDefense",
+        function () { noHit(60 * 15); },
         60 * 15,
-        function (player: Character) { damageBuff(player, 60 * 10); });
-    var missions = [noHitDamage];
+        function (player: Character) { defenseBuff(player, 60 * 10); });
+
+    var landStrongMobility = generateMission("landStrongMovement",
+        function () { landStrongs(4, 60 * 20); },
+        60 * 20,
+        function (player: Character) { mobilityBuff(player, 60 * 10); });
+
+
+    var landedParryCancel = generateMission("parryJumpCancel",
+        function () { landedParry(60 * 15); },
+        60 * 15,
+        function (player: Character) { jumpCancels(player, 60 * 10); });
+
+    var landedSpikes = generateMission("spikeAttackBoost",
+        function () { landedSpikes(3, 60 * 15); },
+        60 * 15,
+        function (player: Character) { attackBuff(player, 60 * 10); });
+
+    var missions = [noHitDefense, deal50Regen, landedParryCancel, landStrongMobility, landedSpikes];
+
     p.addTimer(60, -1, function () {
         if (globalController.exports.data.cooldown == false) {
             runMission(Random.getChoice(missions));
         }
     }, { persistent: true });
-
-
-
-
-
 
 }
 
