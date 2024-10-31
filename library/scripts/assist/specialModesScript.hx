@@ -25,7 +25,7 @@ var modes = [
     "ssf1",
     "exmode",
     "coin",
-    //  "ultimate"
+    "mission"
 ];
 
 var indicatedModes = [
@@ -58,7 +58,7 @@ var conflicts: Array<Array<String>> = [
     [],
     [],
     [],
-    //  []
+    []
 ];
 
 function parseDigit(digit: String) {
@@ -204,23 +204,6 @@ function createController(mode: String) {
 
 function initialize() {
     globalMode = currentMode();
-    //225 to 315
-    var angles = [];
-    Engine.forCount(360, function (idx: Int) {
-        if (GameObject.angleIsInSpikeThreshold(idx)) {
-            if (angles.length < 2) {
-                angles.push([idx, GameObject.angleIsInSpikeThreshold(idx)]);
-            } else {
-                angles[1] = [idx, GameObject.angleIsInSpikeThreshold(idx)];
-
-
-            }
-        }
-        return true;
-    }, []);
-    Engine.log(angles);
-
-
 }
 
 function enableMode() {
@@ -241,7 +224,8 @@ function enableMode() {
             case ("ssf1"): enableSSF1Mode();
             case ("exmode"): enableEXMode();
             case ("coin"): { enableCoins(); };
-            default: { enableMissionMode(); };
+            case ("mission"): { enableMissionMode(); };
+            default: { };
         }
     }
 
@@ -304,18 +288,36 @@ function enableTurboMode() {
 
 function zoomInOnFoe(event: GameObjectEvent) {
     var foe: Character = event.data.foe;
+    var duration = 20;
 
     camera.addForcedTarget(foe);
     camera.setMode(1);
 
-    event.data.self.addTimer(2, 10, function () {
+
+    Engine.forEach(match.getPlayers(), function (p: Character) {
+        p.getDamageCounterContainer().alpha = 0;
+        return true;
+    }, []);
+
+
+    event.data.self.addTimer(2, duration / 2, function () {
         match.freezeScreen(1, []);
     }, { persistent: true });
 
-    event.data.self.addTimer(20, 1, function () {
+    event.data.self.addTimer(10, 1, function () {
+        foe.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function (event: CharacterEvent) {
+            camera.shake(10, 20);
+        }, {});
+    }, { persistent: true });
+
+    event.data.self.addTimer(duration, 1, function () {
         camera.setMode(0);
         camera.deleteForcedTarget(foe);
         camera.addTarget(foe);
+        Engine.forEach(match.getPlayers(), function (p: Character) {
+            p.getDamageCounterContainer().alpha = 1;
+            return true;
+        }, []);
     }, { persistent: true });
 }
 
@@ -323,6 +325,7 @@ function zoomInOnFoe(event: GameObjectEvent) {
 function toCriticalHIt(event: GameObjectEvent) {
     event.data.hitboxStats.damage = event.data.hitboxStats.damage * 1.7;
     event.data.hitboxStats.knockbackGrowth = event.data.hitboxStats.knockbackGrowth + 10;
+    var angle = event.data.hitboxStats.angle;
     if (GameObject.angleIsInSpikeThreshold(angle)) {
         event.data.hitboxStats.buryType = BuryType.PLUNGE;
     }
@@ -345,7 +348,7 @@ function enableDramaticMode() {
 
 
 function willCrit() {
-    return Random.getInt(1, 16) == 8;
+    return Random.getInt(1, 12) == 6;
 }
 
 function enableCriticalMode() {
@@ -484,15 +487,14 @@ function ssf1Mode(obj: Character) {
     obj.addStatusEffect(StatusEffectType.GROUND_FRICTION_MULTIPLIER, 0.3);
     obj.addStatusEffect(StatusEffectType.AERIAL_FRICTION_MULTIPLIER, 0.07);
     obj.addStatusEffect(StatusEffectType.ATTACK_HITSTOP_MULTIPLIER, 0);
-    obj.addStatusEffect(StatusEffectType.ATTACK_SELF_HITSTOP_MULTIPLIER, 0);
+    // obj.addStatusEffect(StatusEffectType.ATTACK_SELF_HITSTOP_MULTIPLIER, 0);
 
-    // obj.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 0);
 
     obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_UP);
     obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_FORWARD);
     obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_DOWN);
 
-    obj.updateCharacterStats({ airdashLimit: 0, shieldScale: 0.008 });
+    obj.updateCharacterStats({ airdashLimit: 0, shieldXOffset: 9999, shieldYOffset: 999 });
 
     obj.addTimer(2, -1, function () {
         obj.reactivateHitboxes();
@@ -636,8 +638,6 @@ function ultimateMode(player: Character) {
         if (player.inStateGroup(CStateGroup.AIRDASH)) {
             if (disabledStatus == null) {
                 disableAllAttacks(player);
-                Engine.log("Disabled Attacks");
-                Engine.log("Disabled Jumps");
                 if (neutral) {
                     player.resetMomentum();
                     player.updateCharacterStats({ dodgeRollSpeed: 0 });
@@ -651,25 +651,20 @@ function ultimateMode(player: Character) {
         }
 
         if (player.inState(CState.AIRDASH_DECELERATING)) {
-            Engine.log("Entered End");
             player.setXSpeed(0);
             player.setYSpeed(0);
             player.resetMomentum();
             player.setDoubleJumpCount(0);
-            Engine.log(player.getDoubleJumpCount());
 
         }
         if (player.getPreviousState() == CState.AIRDASH_FULL_SPEED || player.getPreviousStateGroup(CStateGroup.AIRDASH)) {
-            Engine.log("LEFT AIR DASH");
             player.endAnimation();
             player.toState(CState.FALL);
             var gravity = player.getGameObjectStat("gravity");
             var dodgeTime = 25 / gravity;
             player.addTimer(dodgeTime, 1, function () {
                 enableAirActions(player, tag)(null);
-                Engine.log(player.getDoubleJumpCount());
                 player.setDoubleJumpCount(jumps);
-                Engine.log([gravity, dodgeTime]);
             }, { persistent: true });
 
         }
@@ -1166,7 +1161,7 @@ function regenBuff(player: Character, duration: Int) {
     player.addFilter(outerGlow);
 
     var uid = player.addTimer(20, duration / 20, function () {
-        player.addDamage(-1);
+        player.addDamage(-1.5);
     }, { persistent: true });
 
     var removeBuff = function () {
@@ -1187,15 +1182,17 @@ function mobilityBuff(player: Character, duration: Int) {
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
     var tag = "speedBuff";
-    var airSpeed = player.addStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, 1.2, { tag: tag });
-    var groundSpeed = player.addStatusEffect(StatusEffectType.GROUND_SPEED_ACCELERATION_MULTIPLIER, 1.2, { tag: tag });
     var jump = player.addStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, 1.2, { tag: tag });
     var doubleJump = player.addStatusEffect(StatusEffectType.DOUBLE_JUMP_SPEED_MULTIPLIER, 1.2, { tag: tag });
     var fastFall = player.addStatusEffect(StatusEffectType.FAST_FALL_SPEED_MULTIPLIER, 1.2, { tag: tag });
+    var runSpeed = player.addStatusEffect(StatusEffectType.RUN_SPEED_ACCELERATION_MULTIPLIER, 1.5, { tag: tag });
+    var runSpeedCap = player.addStatusEffect(StatusEffectType.RUN_SPEED_CAP_MULTIPLIER, 1.5, { tag: tag });
+    var dash = player.addStatusEffect(StatusEffectType.DASH_SPEED_MULTIPLIER, 1.5, { tag: tag });
 
     var removeBuff = function () {
-        player.removeStatusEffect(StatusEffectType.AERIAL_SPEED_ACCELERATION_MULTIPLIER, airSpeed.id);
-        player.removeStatusEffect(StatusEffectType.GROUND_SPEED_ACCELERATION_MULTIPLIER, groundSpeed.id);
+        player.removeStatusEffect(StatusEffectType.RUN_SPEED_ACCELERATION_MULTIPLIER, runSpeed.id);
+        player.removeStatusEffect(StatusEffectType.RUN_SPEED_CAP_MULTIPLIER, runSpeedCap.id);
+        player.removeStatusEffect(StatusEffectType.DASH_SPEED_MULTIPLIER, dash.id);
         player.removeStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, jump.id);
         player.removeStatusEffect(StatusEffectType.DOUBLE_JUMP_SPEED_MULTIPLIER, doubleJump.id);
         player.removeStatusEffect(StatusEffectType.FAST_FALL_SPEED_MULTIPLIER, fastFall.id);
@@ -1215,10 +1212,6 @@ function defenseBuff(player: Character, duration: Int) {
     innerGlow.color = 0xFFFFFF;
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
-    var statusTimer = player.applyGlobalBodyStatus(BodyStatus.DAMAGE_RESISTANCE, duration);
-    player.addTimer(1, duration, function () {
-        player.updateAnimationStats({ bodyStatusStrength: 5 });
-    }, { persistent: true });
 
     var hitReceived = function (event: GameObjectEvent) {
         player.addDamage(-0.5 * event.data.hitboxStats.damage);
@@ -1226,7 +1219,6 @@ function defenseBuff(player: Character, duration: Int) {
 
     var removeBuff = function () {
         player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived);
-        statusTimer.finish();
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
     }
@@ -1306,9 +1298,37 @@ function getMissionStatus(player: Character) {
 }
 
 
+function createMissionStatus(player: Character) {
+    var port = player.getPlayerConfig().port;
+    var container: Container = player.getDamageCounterContainer();
+    var resource: String = getContent("missionStatus");
+    var sprite = Sprite.create(resource);
+    sprite.y = sprite.y + 10;
+    sprite.x = sprite.x + (8);
+    sprite.scaleX = 0.6;
+    sprite.scaleY = 0.6;
+    sprite.alpha = 1;
+    container.addChildAt(sprite, 999);
+    globalController.exports.data.missionStatusSprites[port] = sprite;
+
+}
+
+function refreshMissionStatus(player: Character) {
+    var port = player.getPlayerConfig().port;
+    var sprite: Sprite = globalController.exports.data.missionStatusSprites[port];
+
+    switch (getMissionStatus(player)) {
+        case MISSION_PENDING: sprite.currentAnimation = "pending";
+        case MISSION_FAIL: sprite.currentAnimation = "fail";
+        case MISSION_SUCCESS: sprite.currentAnimation = "success";
+        default: sprite.currentAnimation = "empty";
+    }
+}
+
 function setMissionStatus(player: Character, status: Int) {
     var port = player.getPlayerConfig().port;
     globalController.exports.data.missionStatus[port] = status;
+    refreshMissionStatus(player);
 }
 
 function landStrongs(times: Int, duration: Int) {
@@ -1326,6 +1346,9 @@ function landStrongs(times: Int, duration: Int) {
                 && (currTime - prevTime) > 100) {
                 prevTime = currTime;
                 count[0] += 1;
+                if (count[0] >= times) {
+                    setMissionStatus(player, MISSION_SUCCESS);
+                }
             }
         };
 
@@ -1342,21 +1365,25 @@ function landStrongs(times: Int, duration: Int) {
     }, []);
 
 
-
-
 }
 function noHit(duration: Int) {
     var players: Array<Character> = match.getPlayers();
-    Engine.log("Players: " + players);
+
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
-            setMissionStatus(event.data.self, MISSION_FAIL);
-        }, { persistent: true });
-        player.addTimer(duration - 3, 1, function () {
+        var req = function (event: GameObjectEvent) {
+            if (event.data.hitboxStats.damage > 0) {
+                setMissionStatus(event.data.self, MISSION_FAIL);
+            }
+        };
+
+        player.addEventListener(GameObjectEvent.HIT_RECEIVED, req, { persistent: true });
+
+        player.addTimer(duration - 5, 1, function () {
             if (getMissionStatus(player) != MISSION_FAIL) {
                 setMissionStatus(player, MISSION_SUCCESS);
             }
 
+            player.removeEventListener(GameObjectEvent.HIT_RECEIVED, req);
         }, { persistent: true });
         return true;
     }, []);
@@ -1364,16 +1391,22 @@ function noHit(duration: Int) {
 
 function landedParry(duration: Int) {
     var players: Array<Character> = match.getPlayers();
+
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        match.addEventListener(ScoreEvent.PARRY, function (event: ScoreEvent) {
+        var req = function (event: ScoreEvent) {
             setMissionStatus(event.data.self, MISSION_SUCCESS);
-        }, { persistent: true });
-        player.addTimer(duration - 3, 1, function () {
+        };
+
+        match.addEventListener(ScoreEvent.PARRY, req, { persistent: true });
+
+        player.addTimer(duration - 5, 1, function () {
             if (getMissionStatus(player) != MISSION_SUCCESS) {
                 setMissionStatus(player, MISSION_FAIL);
             }
+            match.removeEventListener(ScoreEvent.PARRY, req);
 
-        }, { duration: true });
+
+        }, { persistent: true });
         return true;
     }, []);
 }
@@ -1382,42 +1415,48 @@ function landedSpikes(count: Int, duration: Int) {
     var players: Array<Character> = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
         var i = [0];
-        match.addEventListener(ScoreEvent.SPIKE, function (event: ScoreEvent) {
-            i[0] += 1;
+        var req = function (event: GameObjectEvent) {
+            if (GameObject.angleIsInSpikeThreshold(event.data.hitboxStats.angle)) {
+                i[0] += 1;
+            }
             if (i[0] >= count) {
                 setMissionStatus(player, MISSION_SUCCESS);
             }
-        }, { persistent: true });
-
-        player.addTimer(duration, 1, function () {
+        };
+        player.addEventListener(GameObjectEvent.HIT_DEALT, req, { persistent: true });
+        player.addTimer(duration - 5, 1, function () {
             if (getMissionStatus(player) != MISSION_SUCCESS) {
                 setMissionStatus(player, MISSION_FAIL);
             }
-        }, { duration: true });
+            player.removeEventListener(GameObjectEvent.HIT_DEALT, req);
+        }, { persistent: true });
         return true;
     }, []);
 }
 
 function dealDamage(duration: Int, damage: Int) {
-    Engine.log("dealDamage Mission begun");
 
     var players: Array<Character> = match.getPlayers();
-    var addDamage = function (event: GameObjectEvent) {
-        var player: Character = event.data.self;
-        var port: Int = player.getPlayerConfig().port;
 
-        Engine.log("Adding damage: " + [event.data.hitboxStats.damage, globalController.exports.data]);
-        globalController.exports.data.missionData[port].damage += event.data.hitboxStats.damage;
-        if (globalController.exports.data.missionData[port].damage >= damage && getMissionStatus(player) != MISSION_FAIL) {
-            setMissionStatus(player, MISSION_SUCCESS);
-        }
-    }
     Engine.forEach(players, function (player: Character, _idx: Int) {
         var port = player.getPlayerConfig().port;
         globalController.exports.data.missionData[port] = { damage: 0 };
+
+        var addDamage = function (event: GameObjectEvent) {
+            var player: Character = event.data.self;
+            var port: Int = player.getPlayerConfig().port;
+
+            globalController.exports.data.missionData[port].damage += event.data.hitboxStats.damage;
+            if (globalController.exports.data.missionData[port].damage >= damage && getMissionStatus(player) != MISSION_FAIL) {
+                setMissionStatus(player, MISSION_SUCCESS);
+            }
+        }
         player.addEventListener(GameObjectEvent.HIT_DEALT, addDamage, { persistent: true });
-        player.addTimer(duration, 1, function () {
+        player.addTimer(duration - 5, 1, function () {
             player.removeEventListener(GameObjectEvent.HIT_DEALT, addDamage);
+            if (getMissionStatus(player) != MISSION_SUCCESS) {
+                setMissionStatus(player, MISSION_FAIL);
+            }
         }, { persistent: true });
         return true;
     }, []);
@@ -1426,6 +1465,10 @@ function dealDamage(duration: Int, damage: Int) {
 
 function clearMissionData() {
     globalController.exports.data.missionStatus = [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING];
+    Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
+        setMissionStatus(player, MISSION_PENDING);
+        return true;
+    }, []);
     globalController.exports.data.missionData = [{}, {}, {}, {}];
 }
 
@@ -1474,8 +1517,8 @@ function generateMission(displayString: String, missionFn, duration: Int, reward
 function runMission(mission) {
     var p: Character = self.getOwner();
     globalController.exports.data.cooldown = true;
-    Engine.log("Starting Timer");
     displayMissionPrompt(mission.displayString);
+    clearMissionData();
     mission.missionFn();
     var timeSprites = [];
     var curr = 0;
@@ -1497,9 +1540,6 @@ function runMission(mission) {
         }, []);
 
         Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
-            Engine.log(player);
-            Engine.log(globalController.exports.data);
-
             if (getMissionStatus(player) == MISSION_SUCCESS) {
                 mission.rewardFn(player);
             }
@@ -1507,7 +1547,6 @@ function runMission(mission) {
         }, []);
 
         p.addTimer(60 * 35, 1, function () {
-            Engine.log("Starting New Mission");
             clearMissionData();
             globalController.exports.data.cooldown = false;
         }, { persistent: true });
@@ -1520,20 +1559,29 @@ function runMission(mission) {
 
 
 function enableMissionMode() {
-    var p: Character = self.getOwner();
-    var players: Character = match.getPlayers();
-    Engine.forEach(players, function (player: Character, _idx: Int) {
-        player.addEventListener(CharacterEvent.KNOCK_OUT, function (event: CharacterEvent) {
-            setMissionStatus(player, MISSION_FAIL);
-        }, { persistent: true });
-        return true;
-    }, []);
-
     globalController.exports.data = {
         missionStatus: [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING],
         missionData: [{}, {}, {}, {}],
+        missionStatusSprites: [null, null, null, null],
         cooldown: false
     };
+
+
+    var p: Character = self.getOwner();
+    var players: Character = match.getPlayers();
+
+    Engine.forEach(players, function (player: Character, _idx: Int) {
+        createMissionStatus(player);
+        player.addEventListener(CharacterEvent.KNOCK_OUT, function (event: CharacterEvent) {
+            if (getMissionStatus(player) != MISSION_SUCCESS) {
+                setMissionStatus(player, MISSION_FAIL);
+            }
+        }, { persistent: true });
+        return true;
+    }, []);
+    clearMissionData();
+
+
 
     var deal50Regen = generateMission("deal50Regen",
         function () { dealDamage(60 * 20, 50); },
@@ -1563,9 +1611,11 @@ function enableMissionMode() {
 
     var missions = [noHitDefense, deal50Regen, landedParryCancel, landStrongMobility, landedSpikes];
 
+
     p.addTimer(60, -1, function () {
         if (globalController.exports.data.cooldown == false) {
-            runMission(Random.getChoice(missions));
+            var chosenMission = Random.getChoice(missions);
+            runMission(chosenMission);
         }
     }, { persistent: true });
 
