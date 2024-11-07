@@ -1,0 +1,2 @@
+30 FPS
+350 x 350 Pixels

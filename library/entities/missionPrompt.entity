@@ -62,7 +62,7 @@
       }
     }
   ],
-  "export": true,
+  "export": false,
   "guid": "f61939c8-e5fd-46bd-a84d-2b13f2a4a5f6",
   "id": "missionPrompt",
   "keyframes": [

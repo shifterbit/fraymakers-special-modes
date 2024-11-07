@@ -8,20 +8,20 @@ var life = self.makeInt(60 * 5);
 var originalOwner = null;
 self.exports.dummy = true;
 
-function initialize(){
+function initialize() {
 	//self.addEventListener(EntityEvent.COLLIDE_FLOOR, onGroundHit, { persistent: true });
 	// //self.addEventListener(GameObjectEvent.HIT_DEALT, onHit, { persistent: true });
 
 	// self.setCostumeIndex(self.getOwner().getCostumeIndex());
-	
-    // // Set up horizontal reflection
+
+	// // Set up horizontal reflection
 	// Common.enableReflectionListener({ mode: "X", replaceOwner: true });
 
 	self.setState(PState.ACTIVE);
 
-// 	self.setXSpeed(X_SPEED);
-// 	self.setYSpeed(Y_SPEED);
- }
+	// 	self.setXSpeed(X_SPEED);
+	// 	self.setYSpeed(Y_SPEED);
+}
 
 function onGroundHit(event) {
 	self.removeEventListener(EntityEvent.COLLIDE_FLOOR, onGroundHit);
@@ -53,3 +53,4 @@ function onTeardown() {
 	self.removeEventListener(EntityEvent.COLLIDE_FLOOR, onGroundHit);
 	self.removeEventListener(GameObjectEvent.HIT_DEALT, onHit);
 }
+

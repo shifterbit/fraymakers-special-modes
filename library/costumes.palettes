@@ -1320,7 +1320,7 @@
       "name": "Mission  Mode",
       "pluginMetadata": {
         "com.fraymakers.FraymakersMetadata": {
-          "isBase": true,
+          "isBase": false,
           "teamColor": "NONE"
         }
       }

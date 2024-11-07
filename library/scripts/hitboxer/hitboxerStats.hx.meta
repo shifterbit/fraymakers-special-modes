@@ -1,0 +1,13 @@
+{
+  "export": true,
+  "guid": "4d8c88f3-a97a-440d-b14c-794746b4502f",
+  "id": "hitboxerStats",
+  "language": "hscript",
+  "pluginMetadata": {
+  },
+  "plugins": [
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

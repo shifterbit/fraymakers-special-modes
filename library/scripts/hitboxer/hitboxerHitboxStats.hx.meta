@@ -1,0 +1,13 @@
+{
+  "export": true,
+  "guid": "e21c75ca-5fc1-4822-9aa6-4aa5c728cf69",
+  "id": "hitboxerHitboxStats",
+  "language": "hscript",
+  "pluginMetadata": {
+  },
+  "plugins": [
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

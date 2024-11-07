@@ -19,6 +19,12 @@
         },
         {
           "name": "dummyProj"
+        },
+        {
+          "name": "hitboxer"
+        },
+        {
+          "name": "hitboxer"
         }
       ],
       "version": "0.1.0"

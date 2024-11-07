@@ -1,0 +1,18 @@
+{
+  "export": true,
+  "guid": "cb89c443-5a3c-4aa1-b50e-2a1770092907",
+  "id": "hitboxerScript",
+  "language": "hscript",
+  "pluginMetadata": {
+    "com.fraymakers.FraymakersMetadata": {
+      "objectType": "PROJECTILE",
+      "version": "0.3.0"
+    }
+  },
+  "plugins": [
+    "com.fraymakers.FraymakersMetadata"
+  ],
+  "tags": [
+  ],
+  "version": 1
+}

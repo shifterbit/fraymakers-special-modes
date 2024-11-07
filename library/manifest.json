@@ -119,6 +119,15 @@
       "hitboxStatsId": "dummyProjHitboxStats",
       "scriptId": "nothingScript",
       "costumesId": "assisttemplateCostumes"
+    },
+    {
+      "id": "hitboxer",
+      "type": "projectile",
+      "objectStatsId": "hitboxerStats",
+      "animationStatsId": "hitboxerAnimationStats",
+      "hitboxStatsId": "hitboxerHitboxStats",
+      "scriptId": "hitboxerScript",
+      "costumesId": "assisttemplateCostumes"
     }
   ]
 }

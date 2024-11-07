@@ -1,6 +1,16 @@
 // Runs on object init
 
 // DO NOT TOUCH
+var actionable_animations: Array<String> = [
+    "parry_success",
+    "stand", "stand_turn", "idle",
+    "walk", "walk_in", "walk_out", "walk_loop",
+    "run", "run_turn", "skid",
+    "jump_squat", "jump_in", "jump_out", "jump_midair", "jump_loop",
+    "fall_loop", "fall_in", "fall_out",
+    "crouch_loop", "crouch_in", "crouch_out",
+    "dash", "airdash_land"
+];
 var enabled = self.makeBool(false);
 var prefix = "specialModeType_";
 var globalMode = "none";
@@ -126,6 +136,38 @@ function containsString(arr: Array<String>, item: String) {
     return false;
 }
 
+function containsSubstring(text: String, substr: String) {
+    if (substr.length > text.length) {
+        return false;
+    }
+    var match = false;
+    Engine.forCount(text.length - substr.length + 1, function (idx: Int) {
+        var temp = text.substr(idx, idx + substr.length);
+        if (temp == substr) {
+            match = true;
+            return false;
+        }
+        return true;
+    }, []);
+    return match;
+
+}
+
+/** 
+ * Checks if any item in the array is either equal to or is a subtring of the target
+ * @param {String[]} arr - array of strings
+ * @param {String} target - target string
+ */
+function hasMatchOrSubstring(arr: Array<String>, target: String) {
+    for (i in arr) {
+        if (i == target || containsSubstring(target, i)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 function getContent(id: String) {
     var player: Character = self.getOwner();
     var resource = player.getAssistContentStat("spriteContent") + id;
@@ -225,7 +267,7 @@ function enableMode() {
             case ("exmode"): enableEXMode();
             case ("coin"): { enableCoins(); };
             case ("mission"): { enableMissionMode(); };
-            default: { };
+            default: { enableUltimateMode(); };
         }
     }
 
@@ -286,53 +328,121 @@ function enableTurboMode() {
 }
 
 
+
 function zoomInOnFoe(event: GameObjectEvent) {
-    var foe: Character = event.data.foe;
-    var duration = 20;
+    if (!event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+        var foe: Character = event.data.foe;
+        var duration = 20;
 
-    camera.addForcedTarget(foe);
-    camera.setMode(1);
-
-
-    Engine.forEach(match.getPlayers(), function (p: Character) {
-        p.getDamageCounterContainer().alpha = 0;
-        return true;
-    }, []);
+        camera.addForcedTarget(foe);
+        camera.setMode(1);
 
 
-    event.data.self.addTimer(2, duration / 2, function () {
-        match.freezeScreen(1, []);
-    }, { persistent: true });
-
-    event.data.self.addTimer(10, 1, function () {
-        foe.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function (event: CharacterEvent) {
-            camera.shake(10, 20);
-        }, {});
-    }, { persistent: true });
-
-    event.data.self.addTimer(duration, 1, function () {
-        camera.setMode(0);
-        camera.deleteForcedTarget(foe);
-        camera.addTarget(foe);
         Engine.forEach(match.getPlayers(), function (p: Character) {
-            p.getDamageCounterContainer().alpha = 1;
+            p.getDamageCounterContainer().alpha = 0;
             return true;
         }, []);
-    }, { persistent: true });
+
+
+        event.data.self.addTimer(2, duration / 2, function () {
+            match.freezeScreen(1, []);
+        }, { persistent: true });
+
+        event.data.self.addTimer(10, 1, function () {
+            foe.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function (event: CharacterEvent) {
+                camera.shake(10, 20);
+            }, {});
+        }, { persistent: true });
+
+        event.data.self.addTimer(duration, 1, function () {
+            camera.setMode(0);
+            camera.deleteForcedTarget(foe);
+            camera.addTarget(foe);
+            Engine.forEach(match.getPlayers(), function (p: Character) {
+                p.getDamageCounterContainer().alpha = 1;
+                return true;
+            }, []);
+        }, { persistent: true });
+    }
+}
+
+function zoomInOnSelf(event: GameObjectEvent) {
+    if (!event.data.self.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+        var victim: Character = event.data.self;
+        var duration = 30;
+
+        camera.addForcedTarget(victim);
+        camera.setMode(1);
+
+
+        Engine.forEach(match.getPlayers(), function (p: Character) {
+            p.getDamageCounterContainer().alpha = 0;
+            return true;
+        }, []);
+
+
+        var dummy: Projectile = match.createProjectile(getContent("dummyProj"), null);
+
+        dummy.addTimer(4, duration / 4, function () {
+            match.freezeScreen(2, [dummy, camera]);
+        }, { persistent: true });
+
+        event.data.self.addTimer(10, 1, function () {
+            victim.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function (event: CharacterEvent) {
+                camera.shake(10, 20);
+            }, {});
+        }, { persistent: true });
+
+        event.data.self.addTimer(duration, 1, function () {
+            camera.setMode(0);
+            camera.deleteForcedTarget(victim);
+            camera.addTarget(victim);
+            dummy.dispose();
+            Engine.forEach(match.getPlayers(), function (p: Character) {
+                p.getDamageCounterContainer().alpha = 1;
+                return true;
+            }, []);
+        }, { persistent: true });
+    }
 }
 
 
-function toCriticalHIt(event: GameObjectEvent) {
+
+function toCriticalHit(event: GameObjectEvent) {
     event.data.hitboxStats.damage = event.data.hitboxStats.damage * 1.7;
     event.data.hitboxStats.knockbackGrowth = event.data.hitboxStats.knockbackGrowth + 10;
     var angle = event.data.hitboxStats.angle;
+
+
     if (GameObject.angleIsInSpikeThreshold(angle)) {
         event.data.hitboxStats.buryType = BuryType.PLUNGE;
     }
 }
 
+function applyKillSpark(hue: Int, owner: GameObject, angle: Int, duration: Int, scale: Int) {
+    var vfx = match.createVfx(
+        new VfxStats({ animation: "killSpark", spriteContent: getContent("vfx"), relativeWith: true, rotation: -angle })
+        , owner);
+    vfx.setScaleX(scale);
+    vfx.setScaleY(scale);
+    var filter: HsbcColorFilter = new HsbcColorFilter();
+    filter.hue = Math.toRadians(hue);
+    vfx.addFilter(filter);
+    vfx.setX(owner.getX());
+    vfx.setY(owner.getY());
+    var NUM_DARKEN_COPIES = 4; // Multiple copies to darken the opacity
+    var DARKEN_ALPHA = 1; // prolly shouldn't need to change this, unless u wanna super finetune
+    for (curr_copy in 0...NUM_DARKEN_COPIES) {
+        // Since fadeout is linear, might want to extend it a bit to keep things darker for longer,
+        // Also pausing so it doesn't double fadeout
+        var darkbg = match.createVfx(new VfxStats({ spriteContent: "global::vfx.vfx", animation: "vfx_parry_dust_behind", layer: VfxLayer.CHARACTERS_BACK, timeout: duration, fadeOut: true }), owner);
+        darkbg.pause();
+        darkbg.setAlpha(DARKEN_ALPHA);
+    }
+}
+
 function increaseHitStop(event: GameObjectEvent) {
-    event.data.hitboxStats.hitstopMultiplier = 5;
+    event.data.hitboxStats.hitstopMultiplier = 3;
     event.data.hitboxStats.hitstopOffset = 10;
     event.data.hitboxStats.selfHitstopOffset = 10;
 }
@@ -355,9 +465,14 @@ function enableCriticalMode() {
     var players = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
         player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
-            if (willCrit()) {
-                toCriticalHIt(event);
+            if (willCrit() || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
+                toCriticalHit(event);
                 player.addEventListener(GameObjectEvent.HIT_DEALT, zoomInOnFoe);
+                player.addEventListener(GameObjectEvent.HIT_DEALT, function () {
+                    var angle = event.data.hitboxStats.angle;
+                    applyKillSpark(40, event.data.foe, angle, event.data.hitboxStats.hitstop + 20, 1.5);
+                });
+
             }
         }, { persistent: true });
         return true;
@@ -443,6 +558,7 @@ function exMode(obj: Character) {
             var up = heldControls.UP;
             var down = heldControls.DOWN;
             var neutral = !(up || down || side);
+            var shield = heldControls.SHIELD || heldControls.SHIELD1 || heldControls.SHIELD_AIR || heldControls.SHIELD2;
             var special = heldControls.SPECIAL;
             var jump = heldControls.JUMP_ANY || heldControls.JUMP || heldControls.TAP_JUMP;
 
@@ -599,8 +715,328 @@ function enableAirActions(player: Character, tag: String) {
     }
 }
 
+// function normalizeAngle(hitboxStats: HitboxStats) {
+//     hitboxStatsfa
+// }
+
+
+function distanceFromDeathBounds(entity: Entity, components) {
+    var deathBounds = stage.getDeathBounds();
+    var r = deathBounds.getRectangle();
+    var width = r.width;
+    var height = r.height;
+    var top = deathBounds.getY(); // top
+    var left = deathBounds.getX(); // left 
+    var bottom = top + height; //  bottom
+    var right = left + width; // right
+
+
+    var entityX = entity.getX(); //
+    var entityY = entity.getY(); //
+
+
+    // Create points we can use to measure distance
+    var topPoint = Point.create(0, top);
+    var bottomPoint = Point.create(0, bottom);
+    var leftPoint = Point.create(left, 0);
+    var rightPoint = Point.create(right, 0);
+
+    var entityXPoint = Point.create(entityX, 0);
+    var entityYPoint = Point.create(0, entityY);
+
+    var leftDistance = Math.abs(Math.getDistance(entityXPoint, leftPoint));
+    var rightDistance = Math.abs(Math.getDistance(entityXPoint, rightPoint));
+    var upDistance = Math.abs(Math.getDistance(entityYPoint, topPoint));
+    var downDistance = Math.abs(Math.getDistance(entityYPoint, bottomPoint));
+
+    var closestXBoundDistance = (if (components.x < 0) { leftDistance; } else { rightDistance; });
+    var closestYBoundDistance = (if (components.y < 0) { upDistance; } else { downDistance; });
+    return { x: closestXBoundDistance, y: closestYBoundDistance };
+
+}
+
+
+function calculateKnockback(victim: Character, stats: HitboxStats) {
+    var percentage = victim.getDamage();
+    var weight = victim.getGameObjectStat("weight");
+    var damage = stats.damage;
+    var base = stats.baseKnockback;
+    var scaling = stats.knockbackGrowth / 100;
+    var ratio = 1 / (5.57885284503643);
+    var percentDamageExpr = (percentage / 10) + ((percentage * damage) / 20);
+    var weightExpr = 1.4 * 200 / (weight + 100);
+    var calculatedKnockback = ratio * ((((percentDamageExpr * weightExpr) + 18) * scaling) + base);
+    return calculatedKnockback;
+}
+
+
+function finishZoom(event: GameObjectEvent) {
+    var victim: Character = event.data.self;
+    if (!victim.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+        var knockback = victim.getKnockback();
+        var xVel = victim.getXKnockback();
+        var yVel = victim.getYKnockback();
+
+        var airTime = victim.getHitstun();
+        // External Forces besides knockback
+        var airFriction = victim.getGameObjectStat("aerialFriction");
+        var gravity = victim.getGameObjectStat("gravity");
+
+        var kbComponents = { x: xVel, y: yVel };
+        var boundDistance: { x: Int, y: Int } = distanceFromDeathBounds(victim, kbComponents);
+        var xDistance: Float = Math.abs(xVel * airTime) + 0.5 * (-airFriction * Math.pow(airTime, 2));
+        var yDistance: Float =  if (kbComponents.y >= 0) {
+            // "Calculating launch height using kinematic equations.");
+            Math.abs((Math.abs(yVel) * airTime) + 0.5 * (gravity * Math.pow(airTime, 2)));
+        } else {
+            // "Calculating launch height using projectile motion formula.");
+            Math.abs(Math.pow(yVel, 2) / (2.2 * (gravity)));
+        };
+
+        var distanceComponents = { x: xDistance, y: yDistance };
+        var stats = event.data.hitboxStats;
+        if (distanceComponents.x > boundDistance.x || distanceComponents.y > boundDistance.y || knockback > 35) {
+            victim.addTimer(2, 3, function () {
+                applyKillSpark(0, victim, stats.angle, 30, 1.5);
+            }, { persistent: true });
+
+            event.data.foe.forceStartHitstop(30, false);
+            AudioClip.play(getContent("finishZoom"), { loop: false });
+            victim.forceStartHitstop(30, true);
+            zoomInOnSelf(event);
+
+        }
+    }
+
+}
+
+function enableActions(player: Character, tag: String) {
+    return function (event: GameObjectEvent) {
+        var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
+        Engine.forEach(disabledStatus, function (effect: any, _idx: Int) {
+            player.removeStatusEffect(StatusEffectType.DISABLE_ACTION, effect.id);
+        }, []);
+    }
+}
+
+
+function disableActions(player: Character, tag: String) {
+    //obj.getStatusEffectByType(StatusEffectType.)
+    var disabledActions = [
+        CharacterActions.AERIAL_NEUTRAL,
+        CharacterActions.AERIAL_FORWARD,
+        CharacterActions.AERIAL_DOWN,
+        CharacterActions.AERIAL_BACK,
+        CharacterActions.AERIAL_UP,
+        CharacterActions.SPECIAL_UP,
+        CharacterActions.SPECIAL_DOWN,
+        CharacterActions.SPECIAL_SIDE,
+        CharacterActions.SPECIAL_NEUTRAL,
+        CharacterActions.STRONG_DOWN,
+        CharacterActions.STRONG_FORWARD,
+        CharacterActions.STRONG_UP,
+        CharacterActions.JAB,
+        CharacterActions.TILT_FORWARD,
+        CharacterActions.TILT_DOWN,
+        CharacterActions.TILT_UP
+    ];
+
+    Engine.forEach(disabledActions, function (action: Int, _idx: Int) {
+        player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: tag });
+        return true;
+    }, []);
+}
+
+
+
+function performSpeedyFinalSmash(player: Character) {
+    player.endAnimation();
+    player.toState(CState.UNINITIALIZED);
+    disableActions(player, "final_smash");
+    player.playAnimation("assist_call");
+    player.toggleGravity(false);
+    player.setXSpeed(40);
+    hitbox.updateHitboxStats(0, {
+        damage: 20,
+        baseKnockback: 0,
+        knockbackGrowth: 0,
+        hitstop: 120
+    });
+
+    var res = getContent("hitboxer");
+    var hitbox: Projectile = match.createProjectile(res, self.getOwner());
+    player.addTimer(30, 5, function () {
+        hitbox.reactivateHitboxes();
+        player.addTimer(1, 30, function () {
+            hitbox.setX(player.getX());
+            hitbox.setY(player.getY());
+            player.setXSpeed(14);
+            player.setYSpeed(ySpeed);
+
+        }, { persistent: true, });
+        player.flip();
+
+    }, { persistent: true });
+
+    player.addTimer(30 * 5, 1, function () {
+        player.setXSpeed(0);
+        player.toState(CState.STAND);
+    }, { persistent: true });
+
+}
+
+
+
+function performFinalSmash(player: Character) {
+    if (player.hasAnimation("final_smash")) {
+        player.endAnimation();
+        player.playAnimation("final_smash");
+        player.playFrame(1);
+        var port = player.getPlayerConfig().port;
+        globalController.exports.data.finalSmashCharge[port] = 0;
+    } else {
+        // performSpeedyFinalSmash(player);
+        Engine.log("No Placeholder Final Smash YET");
+    }
+}
+function renderDamage(damage: Int,
+    spriteResource: String,
+    animation: String,
+    spriteObjects: Array<{ sprite: Sprite, filter: HsbcColorFilter }>,
+    container: Container,
+    x: Int,
+    y: Int,
+    spaceBetween: Int) {
+
+    if (spriteObjects == null) {
+        spriteObjects = [];
+    }
+
+    var resource = spriteResource;
+    var damageStr: String = "" + Math.floor(damage);
+    var damageNums = [];
+    Engine.forCount(damageStr.length, function (idx: Int) {
+        damageNums.push(damageStr.charAt(idx));
+        return true;
+    }, []);
+
+
+
+    var spaceBetween = spaceBetween;
+    var maxLength = damageStr.length;
+
+    var totalLength = maxLength;
+
+    var untrimmed = (spriteObjects == null) ? 0 : (spriteObjects.length);
+    if (untrimmed > 0) {
+        Engine.forCount(untrimmed, function (idx: Int) {
+            spriteObjects[idx].sprite.dispose();
+            return true;
+        }, []);
+    }
+    spriteObjects = spriteObjects.slice(untrimmed, spriteObjects.length);
+
+
+
+
+    var greyScale: Bool = damage < 100 ? true : false;
+
+    var makeSprite = function (pos: Int, animation: String) {
+        var sprite: Sprite = Sprite.create(resource);
+        var filter = new HsbcColorFilter();
+        sprite.addFilter(filter);
+        sprite.currentAnimation = animation;
+        sprite.x = x + (spaceBetween) * (1 + pos);
+        sprite.y = y;
+        sprite.scaleX = 1;
+        sprite.scaleY = 1;
+        sprite.currentFrame = parseDigit(damageNums[pos]) + 1;
+        return { sprite: sprite, filter: filter };
+    }
+
+    var insertSprite = function (sprite: { sprite: Sprite, filter: HsbcColorFilter }, pos: Int) {
+        var frame = parseDigit(damageNums[pos]) + 1;
+
+        if (greyScale) {
+            sprite.filter.saturation = -1;
+        } else {
+            sprite.filter.saturation = 100;
+        }
+
+        if (spriteObjects[pos] == null) {
+            spriteObjects[pos] = sprite;
+            container.addChildAt(sprite.sprite, 0);
+        } else {
+            spriteObjects[pos].sprite.currentFrame = frame;
+        }
+    }
+
+    var curr = 0;
+    while (curr < maxLength) {
+        var sprite = makeSprite(curr, animation);
+        insertSprite(sprite, curr);
+        curr++;
+    }
+
+    return spriteObjects;
+}
+
+
+var prevSprites = [];
+function displayDamageNear(event: GameObjectEvent) {
+    var player = event.data.self;
+    var sprites = [];
+    Engine.forEach(prevSprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
+        var sprite = obj.sprite;
+        sprite.dispose();
+        return true;
+    }, []);
+    sprites = renderDamage(player.getDamage(),
+        getContent("number"),
+        "digits",
+        sprites,
+        stage.getCharactersContainer(),
+        player.getX(),
+        player.getY() + player.getEcbHeadY(), 32);
+    prevSprites = sprites;
+    Engine.forEach(sprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
+        var sprite = obj.sprite;
+        sprite.scaleX = 2;
+        sprite.scaleY = 2;
+        return true;
+    }, []);
+    var curr = 0;
+    player.addTimer(1, 100, function () {
+        Engine.forEach(sprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
+            var sprite = obj.sprite;
+            if (curr > 20) {
+                sprite.alpha -= 0.02;
+            }
+            sprite.y -= 2;
+            curr++;
+            return true;
+
+        }, []);
+    }, { persistent: true });
+
+    player.addTimer(101, 1, function () {
+        Engine.forEach(sprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
+            var sprite = obj.sprite;
+            if (!sprite.isDisposed()) {
+                sprite.dispose();
+            }
+            return true;
+        }, []);
+    }, { persistent: true });
+
+
+}
+
 function ultimateMode(player: Character) {
     var tag = "ultimateAirDodge";
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, finishZoom, { persistent: true });
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, displayDamageNear, { persistent: true });
+
     player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
     player.addEventListener(GameObjectEvent.LAND, enableAirActions(player, tag), { persistent: true });
     player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
@@ -610,6 +1046,7 @@ function ultimateMode(player: Character) {
     };
     var dodgeRollSpeed = player.getCharacterStat("dodgeRollSpeed");
     var jumps = player.getDoubleJumpCount();
+    var sprites: Array<{ sprite: Sprite, filter: HsbcColorFilter }> = [];
     player.addTimer(1, -1, function () {
         var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
         var heldControls = player.getHeldControls();
@@ -619,6 +1056,14 @@ function ultimateMode(player: Character) {
         var left = heldControls.LEFT;
         var shields = heldControls.SHIELD || heldControls.SHIELD1 || heldControls.SHIELD2;
         var neutral = !(up || left || down || right);
+        var port = player.getPlayerConfig().port;
+        var charge = globalController.exports.data.finalSmashCharge[port];
+        if (player.getAnimation() != "final_smash"
+            && hasMatchOrSubstring(actionable_animations, player.getAnimation())
+            && player.getPressedControls().EMOTE
+            && charge >= 251) {
+            performFinalSmash(player);
+        }
 
         if (neutral
             && shields
@@ -628,7 +1073,6 @@ function ultimateMode(player: Character) {
             player.setXSpeed(0.1);
             player.setYSpeed(-0.1);
             player.updateCharacterStats({ airdashSpeedCap: 0.001, airdashStartupLength: 0, airdashFullspeedLength: 40 });
-            player.playAnimation("spot_dodge");
 
 
 
@@ -640,8 +1084,6 @@ function ultimateMode(player: Character) {
                 disableAllAttacks(player);
                 if (neutral) {
                     player.resetMomentum();
-                    player.updateCharacterStats({ dodgeRollSpeed: 0 });
-                    player.toState(CState.AIRDASH_INITIAL, "roll");
                 }
             }
         }
@@ -678,8 +1120,72 @@ function ultimateMode(player: Character) {
     }, { persistent: true });
 
 }
+
+function createFinalSmashMeter(player: Character) {
+    var damageContainer = player.getDamageCounterContainer();
+    var res = getContent("fsMeter");
+    var sprite = Sprite.create(res);
+    sprite.scaleX = 0.3;
+    sprite.scaleY = 0.25;
+    sprite.x = 64 + 32 + 8 + 12;
+    sprite.y = 16 + 16 + 2;
+    sprite.currentFrame = 0;
+    damageContainer.addChild(sprite);
+    var filter = new HsbcColorFilter();
+    sprite.addFilter(filter);
+    return {
+        sprite: sprite,
+        filter: filter
+    }
+
+}
+
+function activateFinalSmashMeter(player: Character) {
+    var port = player.getPlayerConfig().port;
+    var spriteObj = globalController.exports.data.meters[port];
+    var sprite: Sprite = spriteObj.sprite;
+    var filter: HsbcColorFilter = spriteObj.filter;
+    player.addTimer(1, -1, function () {
+        var charge = globalController.exports.data.finalSmashCharge[port];
+        if (charge >= 251) {
+            filter.hue += 0.1;
+        } else {
+            filter.hue += 0.01;
+        }
+
+
+        if ((match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
+            if (charge < 251) {
+                globalController.exports.data.finalSmashCharge[port] += 1;
+            } else {
+                globalController.exports.data.finalSmashCharge[port] = 251;
+
+            }
+        }
+        sprite.currentFrame = globalController.exports.data.finalSmashCharge[port];
+    }, { persistent: true });
+    player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+        var charge = globalController.exports.data.finalSmashCharge[port];
+        if (player.getAnimation() != "final_smash" && !event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+            if (charge >= 251) {
+                globalController.exports.data.finalSmashCharge[port] = 251;
+            } else {
+                globalController.exports.data.finalSmashCharge[port] += Math.ceil(event.data.hitboxStats.damage);
+            }
+        }
+
+    }, { persistent: true });
+}
 function enableUltimateMode() {
+    globalController.exports.data = {
+        finalSmashCharge: [0, 0, 0, 0],
+        meters: [null, null, null, null]
+    };
+
     Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
+        var port = player.getPlayerConfig().port;
+        globalController.exports.data.meters[port] = createFinalSmashMeter(player);
+        activateFinalSmashMeter(player);
         ultimateMode(player);
         return true;
     }, []);
