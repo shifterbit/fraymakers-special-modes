@@ -133,7 +133,7 @@
       "keyframes": [
         "7dfe54c1-cb39-4e76-8a08-b667a8e90519"
       ],
-      "locked": false,
+      "locked": true,
       "name": "Labels",
       "pluginMetadata": {
       },
@@ -146,7 +146,7 @@
         "fe1bbc58-ddea-47d8-9f57-d5f6bc80acec"
       ],
       "language": "",
-      "locked": false,
+      "locked": true,
       "name": "Scripts",
       "pluginMetadata": {
       },
@@ -160,7 +160,7 @@
         "cb258e2d-aa90-43ef-9657-594263e610cb",
         "8fed76b7-8705-49b6-9a92-f2910895f5e5"
       ],
-      "locked": false,
+      "locked": true,
       "name": "meter",
       "pluginMetadata": {
       },

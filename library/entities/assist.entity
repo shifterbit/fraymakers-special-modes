@@ -17,7 +17,8 @@
         "5a342b29-789f-4fa9-ad7d-f05dae854aad",
         "25813600-52cb-428f-ab43-b95859ed8788",
         "28832cf6-e64f-4c02-aa10-b24cfefe875c",
-        "931ca686-1a44-4cc6-a9c8-95ff0acd8628"
+        "931ca686-1a44-4cc6-a9c8-95ff0acd8628",
+        "69917b56-ebaf-4656-8175-b5e6fe72b700"
       ],
       "name": "assist_full",
       "pluginMetadata": {
@@ -40,7 +41,8 @@
         "57750278-3e35-48d1-99f6-8e34d98a7201",
         "1e101c04-ca2a-4130-ae6d-4f02792caa89",
         "46b41e30-cf5f-49cf-8891-eaef8c2c5d96",
-        "11673ae9-0e94-441b-bbec-448aed0e42e4"
+        "11673ae9-0e94-441b-bbec-448aed0e42e4",
+        "c8e67e5b-58d3-4aa9-bdb0-51417ba5b6fc"
       ],
       "name": "assist_full_pre",
       "pluginMetadata": {
@@ -347,6 +349,26 @@
       "pluginMetadata": {
       },
       "symbol": "a1965e03-7681-46db-89f0-ac673f144858",
+      "tweenType": "LINEAR",
+      "tweened": false,
+      "type": "IMAGE"
+    },
+    {
+      "$id": "2139bd4a-56b7-490e-80c2-5652bbfd1258",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "symbol": "f76190d1-d432-4366-97d5-e11693240cf2",
+      "tweenType": "LINEAR",
+      "tweened": false,
+      "type": "IMAGE"
+    },
+    {
+      "$id": "c1742b81-b07a-4757-86db-6d500b74b161",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "symbol": "fe680796-fcc6-437a-93ac-1719f05777bb",
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "IMAGE"
@@ -695,7 +717,7 @@
       "keyframes": [
         "fff7a1ab-62f7-4825-9660-38ea6ce8812b"
       ],
-      "locked": true,
+      "locked": false,
       "name": "Mission",
       "pluginMetadata": {
       },
@@ -709,6 +731,30 @@
       ],
       "locked": true,
       "name": "Mission",
+      "pluginMetadata": {
+      },
+      "type": "IMAGE"
+    },
+    {
+      "$id": "69917b56-ebaf-4656-8175-b5e6fe72b700",
+      "hidden": false,
+      "keyframes": [
+        "2139bd4a-56b7-490e-80c2-5652bbfd1258"
+      ],
+      "locked": true,
+      "name": "Ultimate",
+      "pluginMetadata": {
+      },
+      "type": "IMAGE"
+    },
+    {
+      "$id": "c8e67e5b-58d3-4aa9-bdb0-51417ba5b6fc",
+      "hidden": false,
+      "keyframes": [
+        "c1742b81-b07a-4757-86db-6d500b74b161"
+      ],
+      "locked": true,
+      "name": "Ultimate",
       "pluginMetadata": {
       },
       "type": "IMAGE"
@@ -1167,6 +1213,36 @@
       "$id": "a1965e03-7681-46db-89f0-ac673f144858",
       "alpha": 1,
       "imageAsset": "d4f58c43-9da4-4a36-9f8f-d19dbfddd4bf",
+      "pivotX": 41,
+      "pivotY": 21,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 2,
+      "scaleY": 1.5,
+      "type": "IMAGE",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "$id": "f76190d1-d432-4366-97d5-e11693240cf2",
+      "alpha": 1,
+      "imageAsset": "b79e524f-a0f7-4e37-a3e2-0726274d8cc6",
+      "pivotX": 41,
+      "pivotY": 21,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "type": "IMAGE",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "$id": "fe680796-fcc6-437a-93ac-1719f05777bb",
+      "alpha": 1,
+      "imageAsset": "b79e524f-a0f7-4e37-a3e2-0726274d8cc6",
       "pivotX": 41,
       "pivotY": 21,
       "pluginMetadata": {

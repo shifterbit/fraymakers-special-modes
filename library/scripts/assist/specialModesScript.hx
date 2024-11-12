@@ -17,6 +17,7 @@ var globalMode = "none";
 var timeLeft = self.makeInt(60 * 60 * 5);
 var globalDummy: Projectile = null;
 var globalController: CustomGameObject = null;
+var slowDown: { user: GameObject, timer: Int } = null;
 var MISSION_FAIL = -1;
 var MISSION_SUCCESS = 1;
 var MISSION_PENDING = 0;
@@ -35,7 +36,8 @@ var modes = [
     "ssf1",
     "exmode",
     "coin",
-    "mission"
+    "mission",
+    "ultimate"
 ];
 
 var indicatedModes = [
@@ -62,6 +64,7 @@ var conflicts: Array<Array<String>> = [
     [],
     ["vengeance"],
     ["vampire"],
+    [],
     [],
     [],
     [],
@@ -267,7 +270,8 @@ function enableMode() {
             case ("exmode"): enableEXMode();
             case ("coin"): { enableCoins(); };
             case ("mission"): { enableMissionMode(); };
-            default: { enableUltimateMode(); };
+            case ("ultimate"): { enableUltimateMode(); }
+            default: { };
         }
     }
 
@@ -327,14 +331,23 @@ function enableTurboMode() {
     }, []);
 }
 
+function slowMotion(duration: Int, persistent: Bool) {
+    if (globalDummy == null) {
+        globalDummy = match.createProjectile(getContent("dummyProj"), null);
+    }
+    if (slowDown != null) {
+        slowDown.user.removeTimer(slowDown.timer);
+    }
+    var timer = globalDummy.addTimer(4, 4, function () {
+        match.freezeScreen(2, [self, camera, globalDummy]);
+    }, { persistent: persistent });
+    slowDown = { user: globalDummy, timer: timer };
+}
 
-
-function zoomInOnFoe(event: GameObjectEvent) {
-    if (!event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE)) {
-        var foe: Character = event.data.foe;
-        var duration = 20;
-
-        camera.addForcedTarget(foe);
+function zoomInOnPlayer(target: Character, duration: Int) {
+    if (!target.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+        var target: Character = target;
+        camera.addForcedTarget(target);
         camera.setMode(1);
 
 
@@ -343,21 +356,16 @@ function zoomInOnFoe(event: GameObjectEvent) {
             return true;
         }, []);
 
-
-        event.data.self.addTimer(2, duration / 2, function () {
-            match.freezeScreen(1, []);
-        }, { persistent: true });
-
-        event.data.self.addTimer(10, 1, function () {
-            foe.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function (event: CharacterEvent) {
+        target.addTimer(10, 1, function () {
+            target.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function (event: CharacterEvent) {
                 camera.shake(10, 20);
             }, {});
         }, { persistent: true });
 
-        event.data.self.addTimer(duration, 1, function () {
+        target.addTimer(duration, 1, function () {
             camera.setMode(0);
-            camera.deleteForcedTarget(foe);
-            camera.addTarget(foe);
+            camera.deleteForcedTarget(target);
+            camera.addTarget(target);
             Engine.forEach(match.getPlayers(), function (p: Character) {
                 p.getDamageCounterContainer().alpha = 1;
                 return true;
@@ -366,52 +374,17 @@ function zoomInOnFoe(event: GameObjectEvent) {
     }
 }
 
-function zoomInOnSelf(event: GameObjectEvent) {
-    if (!event.data.self.hasBodyStatus(BodyStatus.INVINCIBLE)) {
-        var victim: Character = event.data.self;
-        var duration = 30;
-
-        camera.addForcedTarget(victim);
-        camera.setMode(1);
-
-
-        Engine.forEach(match.getPlayers(), function (p: Character) {
-            p.getDamageCounterContainer().alpha = 0;
-            return true;
-        }, []);
-
-
-        var dummy: Projectile = match.createProjectile(getContent("dummyProj"), null);
-
-        dummy.addTimer(4, duration / 4, function () {
-            match.freezeScreen(2, [dummy, camera]);
-        }, { persistent: true });
-
-        event.data.self.addTimer(10, 1, function () {
-            victim.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function (event: CharacterEvent) {
-                camera.shake(10, 20);
-            }, {});
-        }, { persistent: true });
-
-        event.data.self.addTimer(duration, 1, function () {
-            camera.setMode(0);
-            camera.deleteForcedTarget(victim);
-            camera.addTarget(victim);
-            dummy.dispose();
-            Engine.forEach(match.getPlayers(), function (p: Character) {
-                p.getDamageCounterContainer().alpha = 1;
-                return true;
-            }, []);
-        }, { persistent: true });
-    }
-}
 
 
 
 function toCriticalHit(event: GameObjectEvent) {
     event.data.hitboxStats.damage = event.data.hitboxStats.damage * 1.7;
     event.data.hitboxStats.knockbackGrowth = event.data.hitboxStats.knockbackGrowth + 10;
+    event.data.hitboxStats.hitstop = event.data.hitboxStats.hitstop + 10;
+    event.data.hitboxStats.selfHitstop = event.data.hitboxStats.selfHitstop + 10;
+
     var angle = event.data.hitboxStats.angle;
+
 
 
     if (GameObject.angleIsInSpikeThreshold(angle)) {
@@ -419,30 +392,37 @@ function toCriticalHit(event: GameObjectEvent) {
     }
 }
 
-function applyKillSpark(hue: Int, owner: GameObject, angle: Int, duration: Int, scale: Int) {
+function applyKillSpark(hue: Int, owner: GameObject, angle: Int, scale: Int, vfxOwner: GameObject) {
     var vfx = match.createVfx(
-        new VfxStats({ animation: "killSpark", spriteContent: getContent("vfx"), relativeWith: true, rotation: -angle })
-        , owner);
-    vfx.setScaleX(scale);
-    vfx.setScaleY(scale);
+        new VfxStats({
+            animation: "killSpark",
+            spriteContent: getContent("vfx"),
+            rotation: -angle,
+            scaleX: scale, scaleY: scale
+        })
+        , vfxOwner);
+
     var filter: HsbcColorFilter = new HsbcColorFilter();
     filter.hue = Math.toRadians(hue);
     vfx.addFilter(filter);
     vfx.setX(owner.getX());
     vfx.setY(owner.getY());
-    var NUM_DARKEN_COPIES = 4; // Multiple copies to darken the opacity
+    return vfx;
+}
+
+function darkenScreen(duration: Int, strength: Int) {
+    var NUM_DARKEN_COPIES = strength; // Multiple copies to darken the opacity
     var DARKEN_ALPHA = 1; // prolly shouldn't need to change this, unless u wanna super finetune
     for (curr_copy in 0...NUM_DARKEN_COPIES) {
         // Since fadeout is linear, might want to extend it a bit to keep things darker for longer,
         // Also pausing so it doesn't double fadeout
-        var darkbg = match.createVfx(new VfxStats({ spriteContent: "global::vfx.vfx", animation: "vfx_parry_dust_behind", layer: VfxLayer.CHARACTERS_BACK, timeout: duration, fadeOut: true }), owner);
+        var darkbg = match.createVfx(new VfxStats({ spriteContent: "global::vfx.vfx", animation: "vfx_parry_dust_behind", layer: VfxLayer.CHARACTERS_BACK, timeout: duration, fadeOut: true }), null);
         darkbg.pause();
         darkbg.setAlpha(DARKEN_ALPHA);
     }
 }
 
 function increaseHitStop(event: GameObjectEvent) {
-    event.data.hitboxStats.hitstopMultiplier = 3;
     event.data.hitboxStats.hitstopOffset = 10;
     event.data.hitboxStats.selfHitstopOffset = 10;
 }
@@ -450,7 +430,11 @@ function increaseHitStop(event: GameObjectEvent) {
 function enableDramaticMode() {
     var players = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        player.addEventListener(GameObjectEvent.HIT_DEALT, zoomInOnFoe, { persistent: true });
+        player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+            var stats = event.data.hitboxStats;
+            zoomInOnPlayer(event.data.foe, stats.selfHitstop);
+            slowMotion(stats.selfHitstop, false);
+        }, { persistent: true });
         player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, increaseHitStop, { persistent: true });
         return true;
     }, []);
@@ -458,22 +442,37 @@ function enableDramaticMode() {
 
 
 function willCrit() {
-    return Random.getInt(1, 12) == 6;
+    return match.getElapsedFrames() % Random.getInt(1, 16) == 0;
 }
+
+
 
 function enableCriticalMode() {
     var players = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
-            if (willCrit() || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
-                toCriticalHit(event);
-                player.addEventListener(GameObjectEvent.HIT_DEALT, zoomInOnFoe);
-                player.addEventListener(GameObjectEvent.HIT_DEALT, function () {
-                    var angle = event.data.hitboxStats.angle;
-                    applyKillSpark(40, event.data.foe, angle, event.data.hitboxStats.hitstop + 20, 1.5);
-                });
+        var crit = false;
+        player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+            var stats = event.data.hitboxStats;
+            if (!(event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE))
+                && (crit
+                    || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives"))) {
+                zoomInOnPlayer(event.data.foe, stats.selfHitstop);
+                slowMotion(stats.selfHitstop, true);
+                applyKillSpark(40, event.data.foe, stats.angle, 1, event.data.foe);
+                darkenScreen(stats.selfHitstop + 15, 10);
 
             }
+        }, { persistent: true });
+
+        player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
+            if (crit || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
+                toCriticalHit(event);
+            }
+        }, { persistent: true });
+
+        player.addTimer(1, -1, function () {
+            crit = willCrit();
+
         }, { persistent: true });
         return true;
     }, []);
@@ -773,7 +772,6 @@ function calculateKnockback(victim: Character, stats: HitboxStats) {
 function finishZoom(event: GameObjectEvent) {
     var victim: Character = event.data.self;
     if (!victim.hasBodyStatus(BodyStatus.INVINCIBLE)) {
-        var knockback = victim.getKnockback();
         var xVel = victim.getXKnockback();
         var yVel = victim.getYKnockback();
 
@@ -795,19 +793,44 @@ function finishZoom(event: GameObjectEvent) {
 
         var distanceComponents = { x: xDistance, y: yDistance };
         var stats = event.data.hitboxStats;
-        if (distanceComponents.x > boundDistance.x || distanceComponents.y > boundDistance.y || knockback > 35) {
-            victim.addTimer(2, 3, function () {
-                applyKillSpark(0, victim, stats.angle, 30, 1.5);
-            }, { persistent: true });
+        if (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1)) {
+            applyKillSpark(0, victim, stats.angle, 1.5, victim);
+            event.data.hitboxStats.hitstop = event.data.hitboxStats.hitstop + 10;
+            event.data.hitboxStats.selfHitstop = event.data.hitboxStats.selfHitstop + 10;
+            var volume = 100;
+            var duration = stats.selfHitstop + 10;
+            event.data.foe.forceStartHitstop(stats.hitstop + 10, true);
+            event.data.self.forceStartHitstop(stats.selfHitstop + 10, true);
+            darkenScreen(duration + 10, 12);
+            slowMotion(duration + 10, true);
 
-            event.data.foe.forceStartHitstop(30, false);
-            AudioClip.play(getContent("finishZoom"), { loop: false });
-            victim.forceStartHitstop(30, true);
-            zoomInOnSelf(event);
+            if (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives" || gameEndingStock(victim)) {
+                zoomInOnPlayer(event.data.self, duration);
+                volume = 80;
+            } else {
+                volume = 40;
+            }
+
+            AudioClip.play(getContent("finishZoom"), { loop: false, volume: volume });
 
         }
     }
 
+}
+
+function gameEndingStock(player: Character) {
+    if (match.getMatchSettingsConfig().lives < 0) {
+        return false;
+    }
+    var lives = player.getLives();
+    if (lives > 1) {
+        return false;
+    }
+    var foes = player.getFoes();
+    var allies = match.getPlayers().length - foes.length;
+    if (allies == 1) {
+        return true;
+    }
 }
 
 function enableActions(player: Character, tag: String) {
@@ -815,6 +838,7 @@ function enableActions(player: Character, tag: String) {
         var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
         Engine.forEach(disabledStatus, function (effect: any, _idx: Int) {
             player.removeStatusEffect(StatusEffectType.DISABLE_ACTION, effect.id);
+            return true;
         }, []);
     }
 }
@@ -849,204 +873,194 @@ function disableActions(player: Character, tag: String) {
 
 
 
-function performSpeedyFinalSmash(player: Character) {
-    player.endAnimation();
-    player.toState(CState.UNINITIALIZED);
-    disableActions(player, "final_smash");
-    player.playAnimation("assist_call");
-    player.toggleGravity(false);
-    player.setXSpeed(40);
-    hitbox.updateHitboxStats(0, {
-        damage: 20,
-        baseKnockback: 0,
-        knockbackGrowth: 0,
-        hitstop: 120
-    });
+function formFinalSmash(player: Character) {
+    var duration = 13 * 60;
+    var port = player.getPlayerConfig().port;
+    if (!player.isOnFloor()) {
+        player.playAnimation("assist_call_air");
+    } else {
+        player.playAnimation("assist_call");
+    }
 
-    var res = getContent("hitboxer");
-    var hitbox: Projectile = match.createProjectile(res, self.getOwner());
-    player.addTimer(30, 5, function () {
-        hitbox.reactivateHitboxes();
-        player.addTimer(1, 30, function () {
-            hitbox.setX(player.getX());
-            hitbox.setY(player.getY());
-            player.setXSpeed(14);
-            player.setYSpeed(ySpeed);
+    var port = player.getPlayerConfig().port;
+    globalController.exports.data.finalSmashForm[port] = true;
+    var outerGlow = new GlowFilter();
+    outerGlow.color = 0x0e0e0e;
+    var innerGlow = new GlowFilter();
+    innerGlow.color = 0xFFFFFF;
 
-        }, { persistent: true, });
-        player.flip();
 
+    var rainbow = new HsbcColorFilter();
+    player.addFilter(rainbow);
+    rainbow.saturation = 1.05;
+
+    var airDashes = player.getCharacterStat("airdashLimit");
+    var runSpeedAcceleration = player.getCharacterStat("runSpeedAcceleration");
+
+
+    player.updateCharacterStats({ airdashLimit: airDashes + 1, runSpeedAcceleration: runSpeedAcceleration + 4 });
+
+    player.addFilter(innerGlow);
+    player.addFilter(outerGlow);
+    var boostDamage = function (event: GameObjectEvent) {
+        var baseDamage = event.data.hitboxStats.damage;
+        event.data.hitboxStats.damage = baseDamage * 2;
+    };
+
+    player.applyGlobalBodyStatus(BodyStatus.LAUNCH_RESISTANCE, duration);
+    var curr = 0;
+    var mult = 1;
+    var uid = player.addTimer(1, duration, function () {
+        globalController.exports.data.meters[port].sprite.currentFrame = 0;
+        if (!player.inState(CState.HELD)) {
+            player.updateAnimationStats({ bodyStatusStrength: 10 });
+        }
+
+
+        rainbow.hue += 0.1;
+        if (curr % 20 == 0) {
+            mult = mult * -1;
+        }
+        outerGlow.alpha -= 0.05 * (mult);
+        innerGlow.alpha += 0.05 * (mult);
+        curr++;
     }, { persistent: true });
+    var removeBuff = function () {
+        player.removeEventListener(GameObjectEvent.HITBOX_CONNECTED, boostDamage);
+        player.updateCharacterStats({ airdashLimit: airDashes, runSpeedAcceleration: runSpeedAcceleration });
+        rainbow.hue = 0;
+        globalController.exports.data.finalSmashForm[port] = false;
+        player.removeTimer(uid);
+        player.removeFilter(rainbow);
+        player.removeFilter(outerGlow);
+        player.removeFilter(innerGlow);
+    }
 
-    player.addTimer(30 * 5, 1, function () {
-        player.setXSpeed(0);
-        player.toState(CState.STAND);
-    }, { persistent: true });
 
+    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, boostDamage, { persistent: true });
+    player.addEventListener(CharacterEvent.KNOCK_OUT, removeBuff, { persistent: true });
+    player.addTimer(duration, 1, removeBuff, { persistent: true });
 }
 
 
 
 function performFinalSmash(player: Character) {
+    var port = player.getPlayerConfig().port;
+    globalController.exports.data.meters[port].sprite.currentFrame = 0;
     if (player.hasAnimation("final_smash")) {
         player.endAnimation();
         player.playAnimation("final_smash");
         player.playFrame(1);
-        var port = player.getPlayerConfig().port;
-        globalController.exports.data.finalSmashCharge[port] = 0;
+        player.addTimer(1, player.getTotalFrames() + 500, function () {
+            globalController.exports.data.meters[port].sprite.currentFrame = 0;
+        }, { persistent: true });
     } else {
-        // performSpeedyFinalSmash(player);
-        Engine.log("No Placeholder Final Smash YET");
+        player.endAnimation();
+        player.playAnimation("assist_call");
+        formFinalSmash(player);
     }
 }
-function renderDamage(damage: Int,
-    spriteResource: String,
-    animation: String,
-    spriteObjects: Array<{ sprite: Sprite, filter: HsbcColorFilter }>,
-    container: Container,
-    x: Int,
-    y: Int,
-    spaceBetween: Int) {
 
-    if (spriteObjects == null) {
-        spriteObjects = [];
+
+
+
+
+function greyScaleEverything() {
+    var gs = function () {
+        var filter: HsbcColorFilter = new HsbcColorFilter();
+        filter.saturation = -1;
+        return filter;
     }
+    var containers = camera.getBackgroundContainers(); // might as well set it to this in adcance
+    containers = containers.concat([
+        // Camera Stuff
+        camera.getBackgroundContainer(),
+        camera.getForegroundContainer(),
 
-    var resource = spriteResource;
-    var damageStr: String = "" + Math.floor(damage);
-    var damageNums = [];
-    Engine.forCount(damageStr.length, function (idx: Int) {
-        damageNums.push(damageStr.charAt(idx));
-        return true;
-    }, []);
-
-
-
-    var spaceBetween = spaceBetween;
-    var maxLength = damageStr.length;
-
-    var totalLength = maxLength;
-
-    var untrimmed = (spriteObjects == null) ? 0 : (spriteObjects.length);
-    if (untrimmed > 0) {
-        Engine.forCount(untrimmed, function (idx: Int) {
-            spriteObjects[idx].sprite.dispose();
-            return true;
-        }, []);
-    }
-    spriteObjects = spriteObjects.slice(untrimmed, spriteObjects.length);
-
-
-
-
-    var greyScale: Bool = damage < 100 ? true : false;
-
-    var makeSprite = function (pos: Int, animation: String) {
-        var sprite: Sprite = Sprite.create(resource);
-        var filter = new HsbcColorFilter();
-        sprite.addFilter(filter);
-        sprite.currentAnimation = animation;
-        sprite.x = x + (spaceBetween) * (1 + pos);
-        sprite.y = y;
-        sprite.scaleX = 1;
-        sprite.scaleY = 1;
-        sprite.currentFrame = parseDigit(damageNums[pos]) + 1;
-        return { sprite: sprite, filter: filter };
-    }
-
-    var insertSprite = function (sprite: { sprite: Sprite, filter: HsbcColorFilter }, pos: Int) {
-        var frame = parseDigit(damageNums[pos]) + 1;
-
-        if (greyScale) {
-            sprite.filter.saturation = -1;
-        } else {
-            sprite.filter.saturation = 100;
-        }
-
-        if (spriteObjects[pos] == null) {
-            spriteObjects[pos] = sprite;
-            container.addChildAt(sprite.sprite, 0);
-        } else {
-            spriteObjects[pos].sprite.currentFrame = frame;
-        }
-    }
-
-    var curr = 0;
-    while (curr < maxLength) {
-        var sprite = makeSprite(curr, animation);
-        insertSprite(sprite, curr);
-        curr++;
-    }
-
-    return spriteObjects;
-}
-
-
-var prevSprites = [];
-function displayDamageNear(event: GameObjectEvent) {
-    var player = event.data.self;
-    var sprites = [];
-    Engine.forEach(prevSprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
-        var sprite = obj.sprite;
-        sprite.dispose();
-        return true;
-    }, []);
-    sprites = renderDamage(player.getDamage(),
-        getContent("number"),
-        "digits",
-        sprites,
+        // Characters
+        stage.getCharactersBackContainer(),
         stage.getCharactersContainer(),
-        player.getX(),
-        player.getY() + player.getEcbHeadY(), 32);
-    prevSprites = sprites;
-    Engine.forEach(sprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
-        var sprite = obj.sprite;
-        sprite.scaleX = 2;
-        sprite.scaleY = 2;
+        stage.getCharactersFrontContainer(),
+
+        // Effects
+        stage.getBackgroundBehindContainer(),
+        stage.getBackgroundEffectsContainer(),
+        stage.getBackgroundShadowsContainer(),
+        stage.getBackgroundStructuresContainer(),
+        stage.getCharactersBackContainer(),
+        stage.getCharactersContainer(),
+        stage.getCharactersFrontContainer(),
+        stage.getForegroundEffectsContainer(),
+        stage.getForegroundFrontContainer(),
+        stage.getForegroundShadowsContainer(),
+        stage.getForegroundStructuresContainer(),
+    ]);
+
+    // Extra Stuff Containers may have missed
+    Engine.forEach(match.getCollisionAreas(), function (col: CollisionArea, _idx: Int) {
+        var c = col;
+        containers.push(c);
         return true;
     }, []);
-    var curr = 0;
-    player.addTimer(1, 100, function () {
-        Engine.forEach(sprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
-            var sprite = obj.sprite;
-            if (curr > 20) {
-                sprite.alpha -= 0.02;
-            }
-            sprite.y -= 2;
-            curr++;
-            return true;
 
-        }, []);
-    }, { persistent: true });
+    Engine.forEach(match.getCustomGameObjects(), function (obj: CustomGameObject, _idx: Int) {
+        var c = obj;
+        containers.push(c);
+        return true;
+    }, []);
 
-    player.addTimer(101, 1, function () {
-        Engine.forEach(sprites, function (obj: { sprite: Sprite, filter: HsbcColorFilter }, _idx: Int) {
-            var sprite = obj.sprite;
-            if (!sprite.isDisposed()) {
-                sprite.dispose();
-            }
-            return true;
-        }, []);
-    }, { persistent: true });
+    Engine.forEach(match.getStructures(), function (structure: Structure, _idx: Int) {
+        var c: Structure = structure;
+        containers.push(c);
+        return true;
+    }, []);
 
+    Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
+        containers.push(player.getDamageCounterContainer());
+        return true;
+    }, []);
 
+    var containerObjs: Array<{ item: DisplayObject, filter: HsbcColorFilter }> = [];
+
+    Engine.forEach(containers, function (container: DisplayObject, _idx: Int) {
+        if (container != null) {
+            var filter = gs();
+            container.addFilter(filter);
+            container.alpha = 0.3;
+            containerObjs.push({ item: container, filter: filter });
+        }
+        return true;
+    }, []);
+    return containerObjs;
 }
 
-function ultimateMode(player: Character) {
+function removeFilters(objs: Array<{ item: DisplayObject, filter: HsbcColorFilter }>) {
+    Engine.forEach(objs, function (obj: { item: DisplayObject, filter: HsbcColorFilter }) {
+        obj.item.removeFilter(obj.filter);
+        return true;
+    }, []);
+}
+
+function greyScaleEverythingTimed(duration: Int) {
+    var objs = greyScaleEverything();
+    var removeGreyScale = function () {
+        removeFilters(objs);
+    };
+    self.addTimer(duration, 1, removeGreyScale, { duration: true });
+}
+function ultimateMode(player: Character): void {
+
     var tag = "ultimateAirDodge";
-    player.addEventListener(GameObjectEvent.HIT_RECEIVED, finishZoom, { persistent: true });
-    player.addEventListener(GameObjectEvent.HIT_RECEIVED, displayDamageNear, { persistent: true });
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
+        finishZoom(event);
+    }, { persistent: true });
 
     player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
     player.addEventListener(GameObjectEvent.LAND, enableAirActions(player, tag), { persistent: true });
     player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
-    var neutralAirDash = function () {
-        player.setXSpeed(0);
-        player.setYSpeed(0);
-    };
+
     var dodgeRollSpeed = player.getCharacterStat("dodgeRollSpeed");
     var jumps = player.getDoubleJumpCount();
-    var sprites: Array<{ sprite: Sprite, filter: HsbcColorFilter }> = [];
     player.addTimer(1, -1, function () {
         var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
         var heldControls = player.getHeldControls();
@@ -1057,11 +1071,13 @@ function ultimateMode(player: Character) {
         var shields = heldControls.SHIELD || heldControls.SHIELD1 || heldControls.SHIELD2;
         var neutral = !(up || left || down || right);
         var port = player.getPlayerConfig().port;
-        var charge = globalController.exports.data.finalSmashCharge[port];
+        var charge = globalController.exports.data.meters[port].sprite.currentFrame;
         if (player.getAnimation() != "final_smash"
             && hasMatchOrSubstring(actionable_animations, player.getAnimation())
             && player.getPressedControls().EMOTE
-            && charge >= 251) {
+            && charge >= 251
+        ) {
+            globalController.exports.data.meters[port].sprite.currentFrame = 0;
             performFinalSmash(player);
         }
 
@@ -1073,7 +1089,6 @@ function ultimateMode(player: Character) {
             player.setXSpeed(0.1);
             player.setYSpeed(-0.1);
             player.updateCharacterStats({ airdashSpeedCap: 0.001, airdashStartupLength: 0, airdashFullspeedLength: 40 });
-
 
 
         } else if (!player.inStateGroup(CStateGroup.AIRDASH)) {
@@ -1103,7 +1118,11 @@ function ultimateMode(player: Character) {
             player.endAnimation();
             player.toState(CState.FALL);
             var gravity = player.getGameObjectStat("gravity");
-            var dodgeTime = 25 / gravity;
+            var distance = 200;
+            if (globalController.exports.data.finalSmashForm[port]) {
+                distance = 0;
+            }
+            var dodgeTime = Math.sqrt(((2 * distance) / gravity));
             player.addTimer(dodgeTime, 1, function () {
                 enableAirActions(player, tag)(null);
                 player.setDoubleJumpCount(jumps);
@@ -1132,6 +1151,8 @@ function createFinalSmashMeter(player: Character) {
     sprite.currentFrame = 0;
     damageContainer.addChild(sprite);
     var filter = new HsbcColorFilter();
+    filter.saturation = 1.05;
+    filter.hue = Random.getFloat(0, 1);
     sprite.addFilter(filter);
     return {
         sprite: sprite,
@@ -1140,37 +1161,41 @@ function createFinalSmashMeter(player: Character) {
 
 }
 
+
 function activateFinalSmashMeter(player: Character) {
     var port = player.getPlayerConfig().port;
     var spriteObj = globalController.exports.data.meters[port];
-    var sprite: Sprite = spriteObj.sprite;
+    var meter: Sprite = spriteObj.sprite;
     var filter: HsbcColorFilter = spriteObj.filter;
+
     player.addTimer(1, -1, function () {
-        var charge = globalController.exports.data.finalSmashCharge[port];
-        if (charge >= 251) {
+        if (meter.currentFrame >= 251) {
             filter.hue += 0.1;
         } else {
             filter.hue += 0.01;
         }
 
-
         if ((match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
-            if (charge < 251) {
-                globalController.exports.data.finalSmashCharge[port] += 1;
+            if (meter.currentFrame + 3 < 251) {
+                meter.currentFrame += 3;
             } else {
-                globalController.exports.data.finalSmashCharge[port] = 251;
-
+                meter.currentFrame = 251;
             }
+        } else if (player.getAnimation() == "final_smash" && player.getCurrentFrame() == player.getTotalFrames()) {
+            player.addTimer(1, 300, function () {
+                meter.currentFrame = 0;
+            }, { persistent: true });
         }
-        sprite.currentFrame = globalController.exports.data.finalSmashCharge[port];
     }, { persistent: true });
+
     player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
-        var charge = globalController.exports.data.finalSmashCharge[port];
+        var charge = meter.currentFrame;
         if (player.getAnimation() != "final_smash" && !event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE)) {
-            if (charge >= 251) {
-                globalController.exports.data.finalSmashCharge[port] = 251;
+            var damage = Math.ceil(event.data.hitboxStats.damage);
+            if (charge + damage >= 251) {
+                meter.currentFrame = 251;
             } else {
-                globalController.exports.data.finalSmashCharge[port] += Math.ceil(event.data.hitboxStats.damage);
+                meter.currentFrame += damage;
             }
         }
 
@@ -1178,7 +1203,7 @@ function activateFinalSmashMeter(player: Character) {
 }
 function enableUltimateMode() {
     globalController.exports.data = {
-        finalSmashCharge: [0, 0, 0, 0],
+        finalSmashForm: [false, false, false, false],
         meters: [null, null, null, null]
     };
 
@@ -1194,10 +1219,11 @@ function enableUltimateMode() {
 }
 function smash64Mode(player: Character) {
     player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.5);
+
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_SIDE);
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_DOWN);
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_UP);
-    player.updateCharacterStats({ airdashLimit: 0, shieldScale: 0.008 });
+    player.updateCharacterStats({ airdashLimit: 0 });
 
 
     player.addTimer(1, -1, function () {
@@ -1223,6 +1249,7 @@ function smash64Mode(player: Character) {
 
     player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
         event.data.hitboxStats.directionalInfluence = false;
+        event.data.hitboxStats.hitstopNudgeMultiplier = 2;
     }, { persistent: true });
 }
 
@@ -2128,3 +2155,257 @@ function enableMissionMode() {
 }
 
 
+// Second set for cinematic finish
+var prevCenterSprites: Array<{ vfx: Vfx, filter: HsbcColorFilter }> = [];
+
+/* Frame of grail_excalibur_finish that will show the damage display,
+   Adjust this for the timing, note that damage is calculated ahead of 
+   time to work around the Freeze
+*/
+var DAMAGE_RENDER_FRAME = 255;
+
+/* Change these to adjust scaling and spacing for rendered numbers, these 
+work for the entity I provided but will likely need modification once you 
+found the right font and all. */
+var CENTER_DAMAGE_TEXT_SCALE = 3;
+var CENTER_DAMAGE_TEXT_SPACE = 48;
+var EXCALIBUR_FINISH_DAMAGE = 22;
+
+var grailFoe: Vfx = null;
+var grailHitFoe: Character = null;
+
+function grailFoeVfxFunction() {
+
+    grailFoe = match.createVfx(new VfxStats({
+        spriteContent: grailHitFoe.getResource().getContent(grailHitFoe.getPlayerConfig().character.contentId),
+        animation: "hurt_light_middle", layer: VfxLayer.FOREGROUND_FRONT, scaleX: 1.5, scaleY: 1.5, timeout: 200
+    }));
+
+    camera.getForegroundContainer().addChild(grailFoe.getViewRootContainer());
+
+    grailFoe.addShader(grailHitFoe.getCostumeShader());
+    grailFoe.setAlpha(0.5);
+
+    if (self.getOwner().isFacingLeft()) {
+        grailFoe.faceRight();
+        grailFoe.setX(320);
+        grailFoe.setY(280);
+    };
+    if (self.getOwner().isFacingRight()) {
+        grailFoe.faceLeft();
+        grailFoe.setX(320);
+        grailFoe.setY(280);
+    };
+    grailFoe.playFrame(10);
+    grailFoe.pause();
+
+}
+
+/**
+ * Creates and aligns a set of vfxs to remder an integer damage value
+ * @param damage The damage value, this will be automatically rounded down for you
+ * @param vfxObjects the previous set of vfx objects, so we can make sure that they're cleaned up from previous calls of this function
+ * @param container The container to add the vfx objects to, pass null if you dont want to do this
+ * @param {Object} options Object to configure settings, be sure to fill in ALL the fields
+ * @param {number} options.x x position of test, behaves differently depending on the container
+ * @param {number} options.y x position of text, behaves differently depending on container
+ * @param {number} options.space space between numbers
+ * @param {number} options.scale modifies both x and y scale
+ * @param {number} options.delay frames of delay before visibility
+ */
+function renderDamage(damage: Int,
+    spriteResource: String,
+    vfxObjects: Array<{ vfx: Vfx, filter: HsbcColorFilter }>,
+    container: Container,
+    options: {
+        x: Int,
+        y: Int,
+        space: Int,
+        scale: Int,
+        delay: Int
+    }
+) {
+    if (vfxObjects == null) {
+        vfxObjects = [];
+    }
+
+
+
+    var resource = spriteResource;
+    var damageStr: String = "" + Math.floor(damage);
+    var damageNums = [];
+    Engine.forCount(damageStr.length, function (idx: Int) {
+        damageNums.push(damageStr.charAt(idx));
+        return true;
+    }, []);
+
+
+
+    var maxLength = damageStr.length;
+    var untrimmed = (vfxObjects == null) ? 0 : (vfxObjects.length);
+    if (untrimmed > 0) {
+        Engine.forCount(untrimmed, function (idx: Int) {
+            vfxObjects[idx].vfx.dispose();
+            return true;
+        }, []);
+    }
+
+    vfxObjects = vfxObjects.slice(untrimmed, vfxObjects.length);
+
+    var greyScale: Bool = damage < 100 ? true : false;
+
+    var makeVfx = function (pos: Int) {
+        var vfx = match.createVfx(new VfxStats({
+            spriteContent: resource,
+            animation: damageNums[pos],
+            x: 257 + (options.space) * (1 + pos),
+            y: 280 + (grailHitFoe.getEcbHeadY() * 0.6),
+            layer: VfxLayer.FOREGROUND_FRONT,
+            scaleX: options.scale,
+            scaleY: options.scale,
+            timeout: 100 + options.delay,
+            physics: true
+        }));
+        vfx.setAlpha(0);
+        vfx.addTimer(options.delay + 1, 1, function () {
+            vfx.setAlpha(1);
+        }, { persistent: true });
+
+        var filter = new HsbcColorFilter();
+        vfx.addFilter(filter);
+        return { vfx: vfx, filter: filter };
+    }
+
+    var makeEffectiveVfx = function (pos: Int) {
+        var vfx = match.createVfx(new VfxStats({
+            spriteContent: resource,
+            animation: "effective",
+            x: 320,
+            y: 280 + (grailHitFoe.getEcbHeadY() * 1.4),
+            layer: VfxLayer.FOREGROUND_FRONT,
+            scaleX: options.scale,
+            scaleY: options.scale,
+            timeout: 100 + options.delay,
+            physics: true
+        }));
+        vfx.setAlpha(0);
+        if (!greyScale) {
+            vfx.addTimer(options.delay + 1, 1, function () {
+                vfx.setAlpha(1);
+            }, { persistent: true });
+        }
+        var filter = new HsbcColorFilter();
+        // vfx.addFilter(filter);
+
+        return { vfx: vfx, filter: filter };
+
+    }
+
+
+    var insertVfx = function (vfx: { vfx: Vfx, filter: HsbcColorFilter }, pos: Int) {
+        var frame = damageNums[pos];
+
+        if (greyScale) {
+            vfx.filter.saturation = -1;
+        } else {
+            vfx.filter.saturation = 1;
+        }
+
+        if (vfxObjects[pos] == null) {
+            vfxObjects[pos] = vfx;
+            if (container != null) {
+                container.addChild(vfx.vfx.getViewRootContainer());
+            }
+        } else {
+            vfxObjects[pos].vfx.playAnimation(frame);
+        }
+    }
+
+
+
+    var curr = 0;
+    while (curr < maxLength) {
+        var vfx = makeVfx(curr);
+        insertVfx(vfx, curr);
+        curr++;
+    }
+    if (!greyScale) {
+        insertVfx(makeEffectiveVfx(curr), curr);
+    }
+
+    return vfxObjects;
+}
+
+
+
+/**
+ * Base Function for damage display code
+ * @param delay Delays the effect
+ * @param offset damage added to the foes actual damage to display, useful if you want to precalculate damage in advance, used in conjunction with delay
+ * @returns a list of vfx objects you can put in an allowList for match.freeze or
+ */
+function displayGrailDamage(delay: Int, offset: Int) {
+    var player = grailHitFoe;
+
+    Engine.forEach(prevCenterSprites, function (obj: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
+        var vfx = obj.vfx;
+        vfx.dispose();
+        vfx.kill();
+        return true;
+    }, []);
+
+
+
+    var effects = renderDamage(
+        player.getDamage() + offset, getContent("number"), prevCenterSprites,
+        camera.getForegroundContainer(),
+        {
+            x: grailFoe.x,
+            y: grailFoe.y,
+            space: CENTER_DAMAGE_TEXT_SPACE,
+            scale: CENTER_DAMAGE_TEXT_SCALE,
+            delay: delay
+        }
+    );
+    prevCenterSprites = effects;
+
+    var curr = 0;
+    var mult = 1;
+    var animate = function (vfx: Vfx) {
+        if (curr > 20) {
+            vfx.setAlpha(vfx.getAlpha() - 0.02);
+            vfx.setY(vfx.getY() - 1);
+        }
+        if (curr % 5 == 0) {
+            vfx.setXVelocity(2 * mult);
+        }
+    };
+    var dispose = function (vfx: Vfx) {
+        if (!vfx.isDisposed()) {
+            vfx.dispose();
+        }
+    }
+    player.addTimer(delay, 1, function () {
+        player.addTimer(1, 100, function () {
+            Engine.forEach(effects, function (obj: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
+                animate(obj.vfx);
+                return true;
+            }, []);
+            curr++;
+            mult = mult * -1;
+        }, { persistent: true });
+
+        player.addTimer(101, 1, function () {
+            Engine.forEach(effects, function (obj: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
+                dispose(obj.vfx);
+                return true;
+            }, []);
+        }, { persistent: true });
+    }, { persistent: true });
+    var vfxs = [];
+    Engine.forEach(effects, function (item: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
+        vfxs.push(item.vfx);
+    }, []);
+    return vfxs;
+
+}

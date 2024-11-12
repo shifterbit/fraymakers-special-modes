@@ -3,13 +3,14 @@
 	spriteContent: self.getResource().getContent("hitboxer"),
 	stateTransitionMapOverrides: [
 		PState.ACTIVE => {
-			animation: "projectileIdle"
+			animation: "projectileSpawn"
 		},
 		PState.DESTROYING => {
 			animation: "projectileDestroy"
 		}
 	],	
-	gravity: 0.7,
+	gravity: 0,
+	ghost: true,
 	shadows: true,
 	friction: 0,
 	groundSpeedCap: 11,

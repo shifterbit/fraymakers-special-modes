@@ -20,7 +20,7 @@ function initialize() {
 
 
 function update() {
-	self.setY(self.getOwner().getX());
+	self.setX(self.getOwner().getX());
 	self.setY(self.getOwner().getY());
 }
 

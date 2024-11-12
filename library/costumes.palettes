@@ -118,6 +118,13 @@
       "name": "Mission Mode",
       "pluginMetadata": {
       }
+    },
+    {
+      "$id": "3e355944-79ca-4232-b964-65f06f72387f",
+      "color": "0xFFE9E9E9",
+      "name": "Ultimate Mode",
+      "pluginMetadata": {
+      }
     }
   ],
   "export": true,
@@ -195,6 +202,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Default",
@@ -275,6 +286,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Mega Mode",
@@ -355,6 +370,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Mini Mode",
@@ -435,6 +454,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Heavy Mode",
@@ -515,6 +538,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Light Mode",
@@ -595,6 +622,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "64 Mode",
@@ -675,6 +706,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Vampire Mode",
@@ -755,6 +790,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Vengeance Mode",
@@ -835,6 +874,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Turbo Mode",
@@ -915,6 +958,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Drama Mode",
@@ -995,6 +1042,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Critical Mode",
@@ -1075,6 +1126,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "SSF1 Mode",
@@ -1155,6 +1210,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "EX Mode",
@@ -1235,6 +1294,10 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Coin Mode",
@@ -1315,9 +1378,97 @@
         {
           "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
           "targetColor": "0xFF154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0x2E9E9E9"
         }
       ],
       "name": "Mission  Mode",
+      "pluginMetadata": {
+        "com.fraymakers.FraymakersMetadata": {
+          "isBase": false,
+          "teamColor": "NONE"
+        }
+      }
+    },
+    {
+      "$id": "2c003cbf-3a4c-4f28-84b6-de43f004d28c",
+      "colors": [
+        {
+          "paletteColorId": "724929dc-9152-4c35-b470-d16654ecc102",
+          "targetColor": "0xFF2A292C"
+        },
+        {
+          "paletteColorId": "d0baed42-90c4-4956-ada8-a7446d3ff769",
+          "targetColor": "0xFFEEE9FC"
+        },
+        {
+          "paletteColorId": "18ddd185-5407-4ed0-ac86-f2a2b506cbc7",
+          "targetColor": "0x2FFD300"
+        },
+        {
+          "paletteColorId": "c0c70bdd-f204-4761-94f1-adcded83c0d3",
+          "targetColor": "0xFF1A1A1A"
+        },
+        {
+          "paletteColorId": "50cf96d9-06bf-40d1-975e-22a13e91b9dd",
+          "targetColor": "0x2C26400"
+        },
+        {
+          "paletteColorId": "2e93270c-c173-4e26-a211-7048df18329e",
+          "targetColor": "0x2002CFF"
+        },
+        {
+          "paletteColorId": "fc217821-4892-48be-b138-21bfece4e77e",
+          "targetColor": "0x291A4FF"
+        },
+        {
+          "paletteColorId": "c78f07e9-ff40-42d0-88de-a752e9c6d0eb",
+          "targetColor": "0x2FF0000"
+        },
+        {
+          "paletteColorId": "8494c038-9153-4ed9-89a8-418139863852",
+          "targetColor": "0x27200FF"
+        },
+        {
+          "paletteColorId": "aac03ace-d2d7-4a69-9932-3ae8fa1dc99e",
+          "targetColor": "0x2FF8200"
+        },
+        {
+          "paletteColorId": "3b1dda9b-72ea-433e-966f-80a081100c2e",
+          "targetColor": "0x2F600FF"
+        },
+        {
+          "paletteColorId": "b895af6e-f439-41e7-8a25-c1f86fd9abca",
+          "targetColor": "0x22C4202"
+        },
+        {
+          "paletteColorId": "0c4ca2e2-9222-44b4-bab2-43102ae4523a",
+          "targetColor": "0x266E300"
+        },
+        {
+          "paletteColorId": "ea3372a4-6232-4673-9dbf-33e54e0a1654",
+          "targetColor": "0x25500B2"
+        },
+        {
+          "paletteColorId": "77e74be0-c55f-4896-b5c5-b99c8ed8cccf",
+          "targetColor": "0x2FFF45C"
+        },
+        {
+          "paletteColorId": "6a59d5b7-2826-4f8f-8ae6-0b636d1523b6",
+          "targetColor": "0x27D0000"
+        },
+        {
+          "paletteColorId": "9c6974a1-729b-4106-9efb-8d6ea84926ed",
+          "targetColor": "0x2154722"
+        },
+        {
+          "paletteColorId": "3e355944-79ca-4232-b964-65f06f72387f",
+          "targetColor": "0xFFE9E9E9"
+        }
+      ],
+      "name": "Ultimate Mode",
       "pluginMetadata": {
         "com.fraymakers.FraymakersMetadata": {
           "isBase": false,
