@@ -367,6 +367,9 @@ function zoomInOnPlayer(target: Character, duration: Int) {
             camera.deleteForcedTarget(target);
             camera.addTarget(target);
             Engine.forEach(match.getPlayers(), function (p: Character) {
+                if (p.getLives() != 0 || match.getMatchSettingsConfig().lives == -1) {
+                    camera.addTarget(p);
+                }
                 p.getDamageCounterContainer().alpha = 1;
                 return true;
             }, []);
