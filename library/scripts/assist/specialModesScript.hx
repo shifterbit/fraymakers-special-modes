@@ -797,22 +797,25 @@ function finishZoom(event: GameObjectEvent) {
             applyKillSpark(0, victim, stats.angle, 1.5, victim);
             event.data.hitboxStats.hitstop = event.data.hitboxStats.hitstop + 10;
             event.data.hitboxStats.selfHitstop = event.data.hitboxStats.selfHitstop + 10;
-            var volume = 100;
             var duration = stats.selfHitstop + 10;
-            event.data.foe.forceStartHitstop(stats.hitstop + 10, true);
-            event.data.self.forceStartHitstop(stats.selfHitstop + 10, true);
-            darkenScreen(duration + 10, 12);
-            slowMotion(duration + 10, true);
+
 
             if (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives" || gameEndingStock(victim)) {
-                zoomInOnPlayer(event.data.self, duration);
-                volume = 80;
+                zoomInOnPlayer(event.data.self, duration + 35);
+                event.data.foe.forceStartHitstop(stats.hitstop + 35, true);
+                event.data.self.forceStartHitstop(stats.selfHitstop + 35, true);
+                darkenScreen(duration + 35, 12);
+                slowMotion(duration + 35, true);
+                AudioClip.play(getContent("finishZoom"), { loop: false, volume: 0.38 });
+
             } else {
-                volume = 40;
+                event.data.foe.forceStartHitstop(stats.hitstop + 20, true);
+                event.data.self.forceStartHitstop(stats.selfHitstop + 20, true);
+                darkenScreen(duration + 20, 12);
+                slowMotion(duration + 20, true);
+                AudioClip.play(getContent("finishZoom"), { loop: false, volume: 0.3 });
+
             }
-
-            AudioClip.play(getContent("finishZoom"), { loop: false, volume: volume });
-
         }
     }
 
