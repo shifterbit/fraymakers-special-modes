@@ -21,6 +21,7 @@ var slowDown: { user: GameObject, timer: Int } = null;
 var MISSION_FAIL = -1;
 var MISSION_SUCCESS = 1;
 var MISSION_PENDING = 0;
+var FINAL_SMASH_CHARGE = 500;
 var modes = [
     "none",
     "mega",
@@ -1055,6 +1056,9 @@ function greyScaleEverythingTimed(duration: Int) {
     self.addTimer(duration, 1, removeGreyScale, { duration: true });
 }
 function ultimateMode(player: Character): void {
+    var damageCounter: Container = player.getDamageCounterContainer();
+    var sprites: Array<Sprite> = [];
+    renderText("Hello this is fraynkie\nAlso new lines!\nAnd numbers 1023?\nSymbols: !@#$%^&*()_+=<>{}[]:;,./?'|\\", sprites, damageCounter);
 
     var tag = "ultimateAirDodge";
     player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
@@ -1081,7 +1085,7 @@ function ultimateMode(player: Character): void {
         if (player.getAnimation() != "final_smash"
             && hasMatchOrSubstring(actionable_animations, player.getAnimation())
             && player.getPressedControls().EMOTE
-            && charge >= 251
+            && charge >= FINAL_SMASH_CHARGE
         ) {
             globalController.exports.data.meters[port].sprite.currentFrame = 0;
             performFinalSmash(player);
@@ -1151,20 +1155,19 @@ function createFinalSmashMeter(player: Character) {
     var res = getContent("fsMeter");
     var sprite = Sprite.create(res);
     sprite.scaleX = 0.3;
-    sprite.scaleY = 0.25;
-    sprite.x = 64 + 32 + 8 + 12;
-    sprite.y = 16 + 16 + 2;
+    sprite.scaleY = 0.5;
+    sprite.x = 64 + 32 + 8 + 12 + 9;
+    sprite.y = 14 + 16 + 2;
     sprite.currentFrame = 0;
     damageContainer.addChild(sprite);
     var filter = new HsbcColorFilter();
-    filter.saturation = 1.05;
+    filter.saturation = 1.0;
     filter.hue = Random.getFloat(0, 1);
     sprite.addFilter(filter);
     return {
         sprite: sprite,
         filter: filter
     }
-
 }
 
 
@@ -1175,17 +1178,16 @@ function activateFinalSmashMeter(player: Character) {
     var filter: HsbcColorFilter = spriteObj.filter;
 
     player.addTimer(1, -1, function () {
-        if (meter.currentFrame >= 251) {
-            filter.hue += 0.1;
+        if (meter.currentFrame >= FINAL_SMASH_CHARGE) {
+            filter.hue += 0.05;
         } else {
             filter.hue += 0.01;
         }
-
         if ((match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
-            if (meter.currentFrame + 3 < 251) {
-                meter.currentFrame += 3;
+            if (meter.currentFrame + 1 < FINAL_SMASH_CHARGE) {
+                meter.currentFrame += 1;
             } else {
-                meter.currentFrame = 251;
+                meter.currentFrame = FINAL_SMASH_CHARGE;
             }
         } else if (player.getAnimation() == "final_smash" && player.getCurrentFrame() == player.getTotalFrames()) {
             player.addTimer(1, 300, function () {
@@ -1193,13 +1195,25 @@ function activateFinalSmashMeter(player: Character) {
             }, { persistent: true });
         }
     }, { persistent: true });
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
+        var charge = meter.currentFrame;
+        if (player.getAnimation() != "final_smash" && !event.data.self.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+            var damage = Math.round(event.data.hitboxStats.damage * 2.5);
+            if (charge + damage >= FINAL_SMASH_CHARGE) {
+                meter.currentFrame = FINAL_SMASH_CHARGE;
+            } else {
+                meter.currentFrame += damage;
+            }
+        }
+
+    }, { persistent: true });
 
     player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
         var charge = meter.currentFrame;
         if (player.getAnimation() != "final_smash" && !event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE)) {
             var damage = Math.ceil(event.data.hitboxStats.damage);
-            if (charge + damage >= 251) {
-                meter.currentFrame = 251;
+            if (charge + damage >= FINAL_SMASH_CHARGE) {
+                meter.currentFrame = FINAL_SMASH_CHARGE;
             } else {
                 meter.currentFrame += damage;
             }
@@ -1605,6 +1619,81 @@ function parseTimeString(text: String) {
 
 }
 
+function createSpriteFromCharacter(char: String): Sprite {
+    var res = getContent("text");
+    var lowerCase = "abcdefghijklmnopqrstuvwxyz";
+    var upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    var digits = "0123456789";
+    var symbols = "!\"#$%&'()*+,-,/;<=>?@:[\\]^_`{|}~ ";
+
+    var lowerCaseIndex = lowerCase.indexOf(char);
+    var upperCaseIndex = upperCase.indexOf(char);
+    var digitIndex = digits.indexOf(char);
+    var symbolIndex = symbols.indexOf(char);
+
+    var isDigit = digitIndex >= 0;
+    var isLowerCase = lowerCaseIndex >= 0;
+    var isUpperCase = upperCaseIndex >= 0;
+    var isSymbol = symbolIndex >= 0;
+
+    var sprite: Sprite = Sprite.create(res);
+    if (isDigit) {
+        sprite.currentAnimation = "digits";
+        sprite.currentFrame = digitIndex + 1;
+    } else if (isSymbol) {
+        sprite.currentAnimation = "symbols";
+        sprite.currentFrame = symbolIndex + 1;
+    } else if (isLowerCase) {
+        sprite.currentAnimation = "lowercase";
+        sprite.currentFrame = lowerCaseIndex + 1;
+    } else if (isUpperCase) {
+        sprite.currentAnimation = "uppercase";
+        sprite.currentFrame = upperCaseIndex + 1;
+    }
+
+    return sprite;
+}
+
+function renderText(text: String, sprites: Array<Sprite>, container: Container) {
+    Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
+        sprite.dispose();
+        return true;
+    }, []);
+
+    sprites = [];
+    var line = 0;
+    var col = 0;
+
+    var makeSprite = function (char: String) {
+        var sprite: Sprite = createSpriteFromCharacter(char);
+        sprite.x = col * 6;
+        sprite.y = -64 + line * 10;
+        var filter: HsbcColorFilter = new HsbcColorFilter();
+        filter.brightness = 1;
+        sprite.addFilter(filter);
+        return sprite;
+    }
+
+    var insertSprite = function (sprite: Sprite) {
+        sprites.push(sprite);
+        container.addChild(sprite);
+    }
+
+    Engine.forCount(text.length, function (idx: Int) {
+        var char: String = text.charAt(idx);
+        if (char == "\n") {
+            line++;
+            col = 0;
+        } else {
+            var sprite = makeSprite(char);
+            insertSprite(sprite);
+            col++;
+        }
+        return true;
+    }, []);
+    return sprites;
+}
+
 function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset: Int) {
     var resource = getContent("number");
     var baseOffset = 16;
@@ -1687,7 +1776,6 @@ function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset:
 
 
     return sprites;
-
 }
 
 
