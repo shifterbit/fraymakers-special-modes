@@ -250,6 +250,10 @@ function createController(mode: String) {
 
 function initialize() {
     globalMode = currentMode();
+
+
+
+
 }
 
 function enableMode() {
@@ -718,10 +722,6 @@ function enableAirActions(player: Character, tag: String) {
     }
 }
 
-// function normalizeAngle(hitboxStats: HitboxStats) {
-//     hitboxStatsfa
-// }
-
 
 function distanceFromDeathBounds(entity: Entity, components) {
     var deathBounds = stage.getDeathBounds();
@@ -1056,9 +1056,10 @@ function greyScaleEverythingTimed(duration: Int) {
     self.addTimer(duration, 1, removeGreyScale, { duration: true });
 }
 function ultimateMode(player: Character): void {
-    var damageCounter: Container = player.getDamageCounterContainer();
+    var player: Character = self.getOwner();
+    var damageCounter: Container = self.getOwner().getDamageCounterContainer();
     var sprites: Array<Sprite> = [];
-    renderText("Hello this is fraynkie\nAlso new lines!\nAnd numbers 1023?\nSymbols: !@#$%^&*()_+=<>{}[]:;,./?'|\\", sprites, damageCounter);
+    renderText("<hue=0 saturation=5 contrast=0.5>ColorText </><hue=0 saturation=5 brightness=-1>Hello</> this is <hue=39 saturation=5 >Fraynkie </>Also new lines!And numbers 1023?Symbols: !@#$%^&", sprites, damageCounter, { autoLinewrap: 30, delay: 1 });
 
     var tag = "ultimateAirDodge";
     player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
@@ -1624,7 +1625,7 @@ function createSpriteFromCharacter(char: String): Sprite {
     var lowerCase = "abcdefghijklmnopqrstuvwxyz";
     var upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     var digits = "0123456789";
-    var symbols = "!\"#$%&'()*+,-,/;<=>?@:[\\]^_`{|}~ ";
+    var symbols = "!\"#$%&'()*+,-./;<=>?@:[\\]^_`{|}~ ";
 
     var lowerCaseIndex = lowerCase.indexOf(char);
     var upperCaseIndex = upperCase.indexOf(char);
@@ -1654,7 +1655,225 @@ function createSpriteFromCharacter(char: String): Sprite {
     return sprite;
 }
 
-function renderText(text: String, sprites: Array<Sprite>, container: Container) {
+function parseFloat(text: String) {
+    var integerPortion: String = "";
+    var decimalPortion: String = "";
+    var split: Array<String> = text.split(".");
+    integerPortion = split[0];
+    decimalPortion = split[1];
+    var totalValue: Float = 0;
+    var isNegative = false;
+    Engine.forCount(integerPortion.length, function (idx: Int) {
+        var pos = integerPortion.length - 1 - idx;
+        if (pos == 0 && integerPortion.charAt(pos) == "-") {
+            isNegative = true;
+            totalValue = totalValue * -1;
+            return true;
+        }
+        var num = parseDigit(integerPortion.charAt(pos));
+        totalValue += num * Math.pow(10, idx);
+        return true;
+    }, []);
+    if (decimalPortion != null) {
+        Engine.forCount(decimalPortion.length, function (idx: Int) {
+            var num = parseDigit(decimalPortion.charAt(idx));
+            totalValue += num * Math.pow(10, -(idx + 1));
+            return true;
+        }, []);
+    }
+    return totalValue;
+}
+
+
+function parseIntProp(text: String, curr: Int, propName: String): { propValue: String, pos: Int, error: Boolean } {
+    var propVal = "";
+    if (text.substr(curr, propName.length) == propName) {
+        curr += propName.length;
+        while (text.charAt(curr) == " ") {
+            curr++;
+        }
+        if (text.charAt(curr) == "=") {
+            curr++;
+        } else {
+            return { error: true };
+        }
+        var currA = curr;
+        var nums = "0123456789.-";
+        while (nums.indexOf(text.charAt(curr)) >= 0) {
+            propVal += text.charAt(curr);
+            curr++;
+        }
+
+        while (text.charAt(curr) == " ") {
+            curr++;
+        }
+    } else {
+        return { error: true };
+    }
+    return { propValue: parseFloat(propVal), pos: curr, error: false };
+}
+
+
+function parseTag(text: String): { text: String, hue: Float, saturation: Float, contrast: Float, error: Boolean, length: Int } {
+    var curr = 0;
+    var OPENING_TAG = 1;
+    var CONTENTS = 2;
+    var CLOSING_TAG = 3;
+    var state = OPENING_TAG;
+    var hue = 0;
+    var saturation = 0;
+    var contrast = 0;
+    var brightness = 0;
+    var content = "";
+
+    while (curr < text.length) {
+        if ("<" == text.charAt(curr) && curr == 0) {
+            curr++;
+        } else if (curr > 0 && text.charAt(curr) == "b" && state == OPENING_TAG) {
+            var result = parseIntProp(text, curr, "brightness");
+
+            if (result != null && !result.error) {
+                curr = result.pos;
+                brightness = result.propValue;
+            } else {
+                return { error: true };
+            }
+        } else if (curr > 0 && text.charAt(curr) == "h" && state == OPENING_TAG) {
+            var result = parseIntProp(text, curr, "hue");
+
+            if (result != null && !result.error) {
+                curr = result.pos;
+                hue = result.propValue;
+            } else {
+                return { error: true };
+            }
+        } else if (curr > 0 && text.charAt(curr) == "s" && state == OPENING_TAG) {
+            var result = parseIntProp(text, curr, "saturation");
+            if (result != null && !result.error) {
+                curr = result.pos;
+                saturation = result.propValue;
+            } else {
+                return { error: true };
+            }
+        } else if (curr > 0 && text.charAt(curr) == "c" && state == OPENING_TAG) {
+            var result = parseIntProp(text, curr, "contrast");
+            if (result != null && !result.error) {
+                curr = result.pos;
+                contrast = result.propValue;
+            } else {
+                return { error: true };
+            }
+        } else if (curr > 0 && text.charAt(curr) == ">" && state == OPENING_TAG) {
+            curr++;
+            state = CONTENTS;
+            while (text.charAt(curr) != "<") {
+                if (text.charAt(curr) == "\\") {
+                    if (curr + 2 < text.length) {
+                        content += text.charAt(curr + 1);
+                        curr += 2;
+
+                    } else {
+                        return { error: true };
+                    }
+                } else {
+                    content += text.charAt(curr);
+                    curr++;
+                }
+            }
+            state = CLOSING_TAG;
+            var last = (text.substr(curr, 3));
+            if (last == "</>") {
+                curr += 3;
+                return { hue: hue, saturation: saturation, contrast: contrast, text: content, length: curr };
+            } else {
+                return { error: true };
+            }
+        } else {
+            curr++;
+        }
+    }
+
+    return { brightness: brightness, hue: hue, saturation: saturation, contrast: contrast, text: content, length: curr };
+}
+
+function(createColorShader) {
+    var shader = new RgbaColorShader();
+    shader.color = color;
+    shader.redMultiplier = 1.0 / 3.0;
+    shader.greenMultiplier = 1.0 / 2.0;
+    shader.blueMultiplier = 1;
+    return shader;
+}
+function parseText(text: String) {
+    var nodes: Array<{ text: String, hue: Float, saturation: Float, contrast: Float, error: Boolean, length: Int }> = [];
+    var curr = 0;
+    var nodeIdx = 0;
+    while (curr < text.length) {
+        if (nodes[nodeIdx] == null) {
+            nodes[nodeIdx] = {
+                text: "",
+                hue: 0,
+                red: 256;
+                brightness: 1,
+                saturation: 0,
+                contrast: 0,
+                length: 0,
+                error: false
+            };
+        }
+
+        if (nodes[nodeIdx].error == true) {
+            return null;
+        }
+        if (text.charAt(curr) == "\\") {
+            if (curr + 2 < text.length) {
+                nodes[nodeIdx].text += text.charAt(curr + 1);
+                nodes[nodeIdx].length += 1;
+                curr += 2;
+            } else {
+                return { error: true };
+            }
+        } else if (text.charAt(curr) == "<") {
+            nodeIdx++;
+            var result = parseTag(text.substr(curr));
+            curr += result.length;
+            nodes[nodeIdx] = result;
+            nodeIdx++;
+            // return nodes;
+        } else {
+            nodes[nodeIdx].text += text.charAt(curr);
+            nodes[nodeIdx].length += 1;
+            curr++;
+            if (curr > text.length - 5) {
+                return nodes;
+            }
+        }
+    }
+    return nodes;
+}
+
+
+
+
+
+function renderLines(lines: Array<String>, sprites: Array<Sprite>, container: Container) {
+    renderText(lines.join("\n"), sprites, container, { autoLinewrap: false });
+}
+
+
+function renderText(text: String, sprites: Array<Sprite>, container: Container, options: {
+    autoLinewrap: Int,
+    delay: Int,
+}) {
+    var parsed: Array<{
+        text: String,
+        hue: Float,
+        saturation: Float,
+        brightness: Float,
+        contrast: Float,
+        error: Boolean,
+        length: number
+    }> = parseText(text);
     Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
         sprite.dispose();
         return true;
@@ -1663,34 +1882,69 @@ function renderText(text: String, sprites: Array<Sprite>, container: Container) 
     sprites = [];
     var line = 0;
     var col = 0;
+    var maxCol = options.autoLinewrap;
 
-    var makeSprite = function (char: String) {
+    function makeSprite(char: String, filterOpts: {
+        hue: Float, saturation: Float, brightness: Float, contrast: Float,
+    }) {
+        if (options != null && options.autoLinewrap > 0 && options.autoLinewrap < col && !options.wordWrap) {
+            col = 0;
+            line++;
+        }
         var sprite: Sprite = createSpriteFromCharacter(char);
         sprite.x = col * 6;
         sprite.y = -64 + line * 10;
         var filter: HsbcColorFilter = new HsbcColorFilter();
         filter.brightness = 1;
+        filter.contrast = filterOpts.contrast;
+        filter.saturation = filterOpts.saturation;
+        filter.hue = filterOpts.hue;
         sprite.addFilter(filter);
         return sprite;
     }
 
-    var insertSprite = function (sprite: Sprite) {
+    function insertSprite(sprite: Sprite) {
         sprites.push(sprite);
+    }
+    function showSprite(sprite: Sprite) {
         container.addChild(sprite);
     }
 
-    Engine.forCount(text.length, function (idx: Int) {
-        var char: String = text.charAt(idx);
-        if (char == "\n") {
-            line++;
-            col = 0;
-        } else {
-            var sprite = makeSprite(char);
-            insertSprite(sprite);
-            col++;
-        }
+
+    Engine.forEach(parsed, function (node: {
+        text: String, brightness: Float, hue: number, saturation: number, contrast: number, error: Boolean, length: number
+    }, _: Int) {
+        Engine.forCount(node.text.length, function (idx: Int) {
+            var toLimit = node.text.substr(idx, maxCol - col);
+            var lastSpace = toLimit.lastIndexOf(" ");
+            var char: String = node.text.charAt(idx);
+            if (char == "\n") {
+                line++;
+                col = 0;
+            } else {
+                var sprite = makeSprite(char, { hue: node.hue, saturation: node.saturation, contrast: node.contrast, brightness: node.brightness });
+                insertSprite(sprite);
+                col++;
+            }
+            return true;
+        }, []);
         return true;
     }, []);
+
+    var dummy: Projectile = match.createProjectile(getContent("dummyProj"), null);
+    if (options.delay != null && options.delay > 0) {
+        Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
+            dummy.addTimer(idx * options.delay, 1, function () {
+                showSprite(sprite);
+            }, { persistent: true });
+            return true;
+        }, []);
+    } else {
+        Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
+            showSprite(sprite);
+            return true;
+        }, []);
+    }
     return sprites;
 }
 
