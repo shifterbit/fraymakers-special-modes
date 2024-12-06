@@ -12,6 +12,16 @@
       }
     },
     {
+      "$id": "53953a78-d0a9-4581-aa4e-1b1f625d7434",
+      "layers": [
+        "a6502800-cf60-4fef-81c8-74aa476d98d9",
+        "16eb820b-b287-4d9d-b920-aed4417a74a0"
+      ],
+      "name": "base",
+      "pluginMetadata": {
+      }
+    },
+    {
       "$id": "fe6c9656-5b63-416d-9464-4eddcfcd4641",
       "layers": [
         "ddc5ae5f-5fba-4a51-bd5e-4e9cec158204",
@@ -1138,7 +1148,25 @@
       "length": 1,
       "pluginMetadata": {
       },
-      "symbol": null,
+      "symbol": "a57f36fa-5947-4c8a-861e-04050c51996e",
+      "tweenType": "LINEAR",
+      "tweened": false,
+      "type": "IMAGE"
+    },
+    {
+      "$id": "3e98837a-8c12-4ef6-9ff5-fff0162a1504",
+      "code": "",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
+    },
+    {
+      "$id": "653b4f95-7a0d-41c5-8a3e-8cbe34c4f48b",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "symbol": "6cf9eb17-22bd-4710-a6f6-be81925deccf",
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "IMAGE"
@@ -1476,6 +1504,31 @@
       "hidden": false,
       "keyframes": [
         "883718ae-d82e-4af5-80b5-530bc39fe316"
+      ],
+      "locked": false,
+      "name": "Image Layer",
+      "pluginMetadata": {
+      },
+      "type": "IMAGE"
+    },
+    {
+      "$id": "16eb820b-b287-4d9d-b920-aed4417a74a0",
+      "hidden": false,
+      "keyframes": [
+        "3e98837a-8c12-4ef6-9ff5-fff0162a1504"
+      ],
+      "language": "hscript",
+      "locked": false,
+      "name": "Frame Script Layer",
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
+    },
+    {
+      "$id": "a6502800-cf60-4fef-81c8-74aa476d98d9",
+      "hidden": false,
+      "keyframes": [
+        "653b4f95-7a0d-41c5-8a3e-8cbe34c4f48b"
       ],
       "locked": false,
       "name": "Image Layer",
@@ -2436,7 +2489,7 @@
       "scaleY": 1,
       "type": "IMAGE",
       "x": -3,
-      "y": -12
+      "y": -11
     },
     {
       "$id": "4735df81-0dd2-4bc3-afa6-bc247a91cd26",
@@ -2917,6 +2970,36 @@
       "type": "IMAGE",
       "x": -3,
       "y": -12
+    },
+    {
+      "$id": "6cf9eb17-22bd-4710-a6f6-be81925deccf",
+      "alpha": 1,
+      "imageAsset": "5cd922cb-5684-4474-9ac5-48e228ed3139",
+      "pivotX": 0,
+      "pivotY": 0,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "type": "IMAGE",
+      "x": -8,
+      "y": -12
+    },
+    {
+      "$id": "a57f36fa-5947-4c8a-861e-04050c51996e",
+      "alpha": 1,
+      "imageAsset": "2698038c-935f-434b-9fba-b72fe1a8f419",
+      "pivotX": 128,
+      "pivotY": 128,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "type": "IMAGE",
+      "x": -135,
+      "y": -158
     }
   ],
   "tags": [

@@ -201,22 +201,43 @@ function slug(mode: String) {
 }
 
 function displayMode() {
-    if (indicatedModes.indexOf(globalMode) > 0) {
-        var player: Character = self.getOwner();
-        var container: Container = player.getDamageCounterContainer();
-        var resource: String = player.getAssistContentStat("spriteContent") + globalMode;
-        var sprite = Sprite.create(resource);
-        sprite.scaleY = 0.6;
-        sprite.scaleX = 0.4;
-        sprite.y = sprite.y + 12;
-        sprite.x = sprite.x + (8 * 15);
-        container.addChild(sprite);
-        if (isRunning(globalMode)) {
-            var filter = new HsbcColorFilter();
-            filter.brightness = -70 / 100;
-            sprite.addFilter(filter);
+    var player: Character = self.getOwner();
+    var text = globalMode + "\nmode";
+    var emptyVfx = match.createVfx(new VfxStats({
+        x: 150,
+        y: 22
+        ,
+        loop: true,
+        animation: "empty",
+        spriteContent: getContent("text")
+    }), null);
+    var inner = emptyVfx.getViewRootContainer();
+
+    var container: Container = player.getDamageCounterContainer();
+
+    var textSprites = [];
+
+    var textData = renderText(text, textSprites, inner, {
+        x: 0,
+        y: 0,
+    });
+    Engine.forEach(textData.sprites, function (sprite: Sprite, idx: int) {
+        if (idx < globalMode.length) {
+            sprite.x -= (globalMode.length * 6);
+        } else {
+            sprite.x -= (4 * 6);
+
         }
-    }
+        return true;
+    }, []);
+    inner.scaleX = 0.7;
+    inner.scaleY = 0.7;
+
+
+
+    container.addChild(inner);
+
+
 }
 function isRunning(mode: String) {
     var objs: Array<CustomGameObject> = match.getCustomGameObjects();
@@ -250,10 +271,6 @@ function createController(mode: String) {
 
 function initialize() {
     globalMode = currentMode();
-
-
-
-
 }
 
 function enableMode() {
@@ -421,13 +438,23 @@ function applyKillSpark(hue: Int, owner: GameObject, angle: Int, scale: Int, vfx
 function darkenScreen(duration: Int, strength: Int) {
     var NUM_DARKEN_COPIES = strength; // Multiple copies to darken the opacity
     var DARKEN_ALPHA = 1; // prolly shouldn't need to change this, unless u wanna super finetune
+    var garbage: Array<Vfx> = [];
+
     for (curr_copy in 0...NUM_DARKEN_COPIES) {
         // Since fadeout is linear, might want to extend it a bit to keep things darker for longer,
         // Also pausing so it doesn't double fadeout
         var darkbg = match.createVfx(new VfxStats({ spriteContent: "global::vfx.vfx", animation: "vfx_parry_dust_behind", layer: VfxLayer.CHARACTERS_BACK, timeout: duration, fadeOut: true }), null);
         darkbg.pause();
         darkbg.setAlpha(DARKEN_ALPHA);
+        garbage.push(darkbg);
     }
+    var owner: Character = self.getOwner();
+    owner.addTimer(duration, 1, function () {
+        Engine.forEach(garbage, function (vfx: Vfx, idx: Int) {
+            vfx.destroy();
+            return true;
+        }, []);
+    }, { persistent: true });
 }
 
 function increaseHitStop(event: GameObjectEvent) {
@@ -606,67 +633,66 @@ function enableEXMode() {
 }
 
 
-function ssf1Mode(obj: Character) {
-    obj.addStatusEffect(StatusEffectType.GROUND_FRICTION_MULTIPLIER, 0.3);
-    obj.addStatusEffect(StatusEffectType.AERIAL_FRICTION_MULTIPLIER, 0.07);
-    obj.addStatusEffect(StatusEffectType.ATTACK_HITSTOP_MULTIPLIER, 0);
-    obj.addStatusEffect(StatusEffectType.ATTACK_SELF_HITSTOP_MULTIPLIER, 0);
+function ssf1Mode(player: Character) {
+    player.addStatusEffect(StatusEffectType.GROUND_FRICTION_MULTIPLIER, 0.3);
+    player.addStatusEffect(StatusEffectType.AERIAL_FRICTION_MULTIPLIER, 0.07);
+    player.addStatusEffect(StatusEffectType.ATTACK_HITSTOP_MULTIPLIER, 0);
+    player.addStatusEffect(StatusEffectType.ATTACK_SELF_HITSTOP_MULTIPLIER, 0);
 
 
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_UP);
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_FORWARD);
-    obj.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_DOWN);
+    player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_UP);
+    player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_FORWARD);
+    player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_DOWN);
+    player.updateCharacterStats({ airdashLimit: 0, shieldXOffset: 99999, shieldYOffset: 9999 });
 
-    obj.updateCharacterStats({ airdashLimit: 0, shieldXOffset: 9999, shieldYOffset: 999 });
-
-    obj.addTimer(2, -1, function () {
-        obj.reactivateHitboxes();
+    player.addTimer(2, -1, function () {
+        player.reactivateHitboxes();
     }, { persistent: true });
 
 
-    obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
+    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
         event.data.hitboxStats.hitEffectOverride = "";
         event.data.hitboxStats.stackKnockback = false;
     }, { persistent: true });
 
-    obj.addTimer(0.5, -1, function () {
-        obj.setAirdashCount(0);
-        var grounded = obj.isOnFloor();
+    player.addTimer(0.5, -1, function () {
+        player.setAirdashCount(0);
+        var grounded = player.isOnFloor();
         if (false
-            || obj.inStateGroup(CStateGroup.AIRDASH)
-            || obj.inStateGroup(CStateGroup.GRAB)
-            || obj.inStateGroup(CStateGroup.SHIELD)) {
-            obj.endAnimation();
+            || player.inStateGroup(CStateGroup.AIRDASH)
+            || player.inStateGroup(CStateGroup.GRAB)
+            || player.inStateGroup(CStateGroup.SHIELD)) {
+            player.endAnimation();
 
         }
-        var pressingRight = obj.getHeldControls().RIGHT;
-        var pressingLeft = obj.getHeldControls().LEFT;
-        if ((obj.isFacingLeft() && pressingRight) || (obj.isFacingRight() && pressingLeft) && !obj.getState(CState.KO) && obj.getHitstun() == 0) {
-            obj.flipX(obj.getX());
-            if (obj.isFacingLeft()) {
-                obj.faceRight();
-            } else if (obj.isFacingRight()) {
-                obj.faceLeft();
+        var pressingRight = player.getHeldControls().RIGHT;
+        var pressingLeft = player.getHeldControls().LEFT;
+        if ((player.isFacingLeft() && pressingRight) || (player.isFacingRight() && pressingLeft) && !player.getState(CState.KO) && player.getHitstun() == 0) {
+            player.flipX(player.getX());
+            if (player.isFacingLeft()) {
+                player.faceRight();
+            } else if (player.isFacingRight()) {
+                player.faceLeft();
             }
             if (grounded) {
-                obj.resetMomentum();
-                if (obj.inStateGroup(CStateGroup.WALK)) {
-                    obj.toState(CState.WALK_LOOP);
-                } else if (obj.getState() == CState.RUN || obj.getState() == CState.DASH) {
-                    obj.toState(CState.DASH);
+                player.resetMomentum();
+                if (player.inStateGroup(CStateGroup.WALK)) {
+                    player.toState(CState.WALK_LOOP);
+                } else if (player.getState() == CState.RUN || player.getState() == CState.DASH) {
+                    player.toState(CState.DASH);
                 } else {
-                    obj.endAnimation();
-                    obj.toState(CState.WALK_LOOP);
+                    player.endAnimation();
+                    player.toState(CState.WALK_LOOP);
                 }
                 //obj.setXVelocity(-obj.getXVelocity());
             } else {
-                obj.toState(CState.FALL);
+                player.toState(CState.FALL);
             }
 
         }
 
-        if (obj.getState() == CState.SHIELD_LOOP || obj.getState() == CState.SHIELD_IN || obj.getState() == CState.SHIELD_OUT) {
-            obj.getState(CState.STAND);
+        if (player.getState() == CState.SHIELD_LOOP || player.getState() == CState.SHIELD_IN || player.getState() == CState.SHIELD_OUT) {
+            player.getState(CState.STAND);
         }
 
     }, { persistent: true });
@@ -775,7 +801,7 @@ function calculateKnockback(victim: Character, stats: HitboxStats) {
 
 function finishZoom(event: GameObjectEvent) {
     var victim: Character = event.data.self;
-    if (!victim.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+    if (!victim.hasBodyStatus(BodyStatus.INVINCIBLE) && event.data.hitboxStats.flinch) {
         var xVel = victim.getXKnockback();
         var yVel = victim.getYKnockback();
 
@@ -783,6 +809,7 @@ function finishZoom(event: GameObjectEvent) {
         // External Forces besides knockback
         var airFriction = victim.getGameObjectStat("aerialFriction");
         var gravity = victim.getGameObjectStat("gravity");
+
 
         var kbComponents = { x: xVel, y: yVel };
         var boundDistance: { x: Int, y: Int } = distanceFromDeathBounds(victim, kbComponents);
@@ -797,8 +824,10 @@ function finishZoom(event: GameObjectEvent) {
 
         var distanceComponents = { x: xDistance, y: yDistance };
         var stats = event.data.hitboxStats;
-        if (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1)) {
-            applyKillSpark(0, victim, stats.angle, 1.5, victim);
+        var angle = stats.angle;
+        var autoLinkAngles = [SpecialAngle.AUTOLINK_STRONGER, SpecialAngle.AUTOLINK_STRONGEST, SpecialAngle.AUTOLINK_WEAK];
+        if (autoLinkAngles.indexOf(angle) < 0 && (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1))) {
+            applyKillSpark(0, victim, Math.getAngleFromVelocity(xVel, yVel), 1.5, victim);
             event.data.hitboxStats.hitstop = event.data.hitboxStats.hitstop + 10;
             event.data.hitboxStats.selfHitstop = event.data.hitboxStats.selfHitstop + 10;
             var duration = stats.selfHitstop + 10;
@@ -1055,24 +1084,338 @@ function greyScaleEverythingTimed(duration: Int) {
     };
     self.addTimer(duration, 1, removeGreyScale, { duration: true });
 }
-function ultimateMode(player: Character): void {
-    var player: Character = self.getOwner();
-    var damageCounter: Container = self.getOwner().getDamageCounterContainer();
-    var sprites: Array<Sprite> = [];
-    renderText("<hue=0 saturation=5 contrast=0.5>ColorText </><hue=0 saturation=5 brightness=-1>Hello</> this is <hue=39 saturation=5 >Fraynkie </>Also new lines!And numbers 1023?Symbols: !@#$%^&", sprites, damageCounter, { autoLinewrap: 30, delay: 1 });
 
+function clearSprites(textSprites: Array<Sprite>) {
+    Engine.forEach(textSprites, function (sprite: Sprite, idx: Int) {
+        sprite.dispose();
+        return true;
+    }, []);
+    textSprites = [];
+
+}
+
+function createShield(player: Character, regenRate: Float, deplete: Float, timeTodrop: Int, resetValue: Float): {
+    maxLevel: Float,
+    hide: CallableFunction,
+    show: CallableFunction,
+    getLevel: CallableFunction,
+    visible: CallableFunction,
+    shrink: CallableFunction,
+    grow: CallableFunction,
+    setValue: CallableFunction,
+    getTimeToDrop: CallableFunction
+} {
+    player.updateCharacterStats({
+        shieldBackXOffset: 10000000,
+        shieldBackYOffset: 10000000,
+        shieldFrontXOffset: 10000000,
+        shieldFrontYOffset: 10000000,
+        shieldCrossupThreshold: Math.POSITIVE_INFINITY
+
+    });
+
+
+    var shader: RgbaColorShader = createColorShader(player.getPortColor());
+    var dropTime = timeTodrop;
+    var shield = match.createVfx(new VfxStats({
+        spriteContent: getContent("roundShield"),
+        animation: "shield",
+        x: 0,
+        y: 0,
+        resizeWith: true,
+        loop: true
+    }), null);
+
+    shield.addShader(shader);
+    shield.setAlpha(0);
+
+    var shieldHeight = shield.getSprite().height;
+    var yOffset = 0;
+    var currentLevel = 1;
+    var effectScale = 1;
+    function updateScale() {
+        var resizeStatuses = player.getStatusEffectByType(StatusEffectType.SIZE_MULTIPLIER);
+        if (resizeStatuses != null) {
+            effectScale = resizeStatuses.getProduct();
+        }
+        var characterHeight = player.getSprite().height;
+        var characterWidth = player.getSprite().width;
+        var characterSize = characterHeight > characterWidth ? characterHeight : characterWidth;
+        var scale = effectScale * (characterSize * 1.3) / shieldHeight;
+        shield.setScaleX(currentLevel * scale);
+        shield.setScaleY(currentLevel * scale);
+        yOffset = characterHeight / -2;
+
+
+    }
+    updateScale();
+
+    function grow(percentage) {
+        var amount = percentage;
+        if (currentLevel + amount < 1) {
+            currentLevel += amount;
+        } else {
+            currentLevel = 1;
+        }
+        updateScale();
+
+
+    }
+    function shrink(percentage) {
+        var amount = percentage;
+        if (currentLevel - amount > 0) {
+            currentLevel -= amount;
+        } else {
+            currentLevel = 0;
+        }
+
+        updateScale();
+    }
+    function setValue(percentage) {
+        var amount = percentage;
+        if (amount > 1) {
+            currentLevel = 1;
+        } else {
+            currentLevel = amount;
+        }
+        updateScale();
+
+    }
+    function hide() {
+        shield.setAlpha(0);
+    }
+    function show() {
+        shield.setAlpha(1);
+    }
+    function visible() {
+        return shield.getAlpha() > 0;
+    }
+    function getLevel() {
+        return currentLevel;
+    }
+
+    function getTimeToDrop() {
+        return dropTime;
+    }
+
+
+    shield.addTimer(1, -1, function () {
+        shield.setX(player.getX());
+        shield.setY(yOffset + player.getY());
+
+        if (player.inState(CState.SHIELD_IN) || player.inState(CState.SHIELD_LOOP) || player.inState(CState.SHIELD_HURT)) {
+            show();
+        } else {
+            hide();
+        }
+        if (!player.inState(CState.SHIELD_HURT)) {
+            if (!visible()) {
+                grow(regenRate);
+            } else {
+                shrink(deplete);
+            }
+        }
+        var held = player.getHeldControls();
+        var pressing = player.getHeldControls();
+        var notPressingShield = !(
+            held.SHIELD || held.SHIELD1 || held.SHIELD2 || held.SHIELD_AIR
+            || pressing.SHIELD || pressing.SHIELD1 || pressing.SHIELD2 || pressing.SHIELD_AIR
+        );
+
+        if (player.inState(CState.SHIELD_LOOP) || player.inState(CState.SHIELD_IN) || notPressingShield) {
+            if (dropTime > 0) {
+                dropTime--;
+            }
+        } else {
+            dropTime = timeTodrop;
+        }
+
+        if (getLevel() == 0) {
+            player.takeHit(new HitboxStats({ damage: 0, baseKnockback: 80, hitstun: 60 * 1, angle: 90, reflectable: false, absorbable: false, shieldable: false, directionalInfluence: false, tumbleType: TumbleType.ALWAYS }));
+
+            var breakStatus = player.applyGlobalBodyStatus(BodyStatus.INVINCIBLE, 60);
+            player.updateAnimationStats({ landType: LandType.NONE });
+            var stunVfx = null;
+
+            function leaveShieldStun() {
+                if (stunVfx != null) {
+                    stunVfx.kill();
+                    stunVfx = null;
+                    leftShieldStun = true;
+                }
+            };
+
+            setValue(resetValue);
+
+            player.addEventListener(EntityEvent.COLLIDE_FLOOR, function onCollideFloor(event: EntityEvent) {
+                player.removeEventListener(EntityEvent.COLLIDE_FLOOR, onCollideFloor);
+
+                breakStatus.finish();
+                stunVfx = match.createVfx(new VfxStats({
+                    spriteContent: getContent("roundShield"), resizeWith: true, scaleY: effectScale, scaleX: effectScale, animation: "stunVfx", loop: true, y: effectScale * -player.getEcbCollisionBox().height
+                }, player));
+
+                stunVfx.attachTo(player);
+                player.setState(CState.EMOTE);
+                player.playAnimation("stand");
+
+                var grabFn = null;
+                var hitFn = null;
+                function onHit(event: GameObjectEvent) {
+                    hitFn = onHit;
+                    if (event.data.hitboxStats.flinch) {
+                        player.removeEventListener(GameObjectEvent.HIT_RECEIVED, grabFn);
+                        player.removeEventListener(EntityEvent.STATE_CHANGE, hitFn);
+
+                        leaveShieldStun();
+                    }
+                }
+
+                function onGrabbed(event: EntityEvent) {
+                    grabFn = onGrabbed;
+                    if (event.data.toState == CState.HELD) {
+                        player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitFn);
+                        player.removeEventListener(EntityEvent.STATE_CHANGE, grabFn);
+
+                        leaveShieldStun();
+                    }
+                }
+
+                player.addEventListener(GameObjectEvent.HIT_RECEIVED, onHit, { persistent: true });
+                player.addEventListener(EntityEvent.STATE_CHANGE, onGrabbed, { persistent: true });
+            }, { persistent: false });
+
+            player.addTimer(60 * 5, 1, function () {
+
+                leaveShieldStun();
+                if (player.isOnFloor()) { player.toState(CState.STAND); } else { player.toState(CState.FALL); }
+            }, { persistent: true });
+
+        }
+    }, { persistent: true });
+
+
+
+    player.addEventListener(EntityEvent.STATE_CHANGE, function (event: EntityEvent) {
+        var toState = event.data.toState;
+        var fromState = event.data.fromState;
+        var fromShield = (fromState == CState.SHIELD_OUT
+            || fromState == CState.SHIELD_IN
+            || fromState == CState.SHIELD_LOOP
+            || fromState == CState.SHIELD_HURT
+            || fromState == CState.SHIELD_BREAK);
+
+        if (!fromShield && toState == CState.SHIELD_IN) {
+            shieldStarted = true;
+        } else if (fromState != toState
+            && (fromState == CState.SHIELD_IN || fromState == CState.SHIELD_LOOP || fromState == CState.SHIELD_HURT)
+            && toState == CState.SHIELD_OUT && dropTime > 0) {
+            player.setState(CState.SHIELD_LOOP);
+            forceShield = true;
+        }
+
+
+    }, { persistent: true });
+
+    return {
+        grow: grow,
+        shrink: shrink,
+        setValue: setValue,
+        hide: hide,
+        show: show,
+        visible: visible,
+        getLevel: getLevel,
+        getTimeToDrop: getTimeToDrop
+    }
+
+}
+
+function ultimateMode(player: Character): void {
     var tag = "ultimateAirDodge";
+    player.addEventListener(GameObjectEvent.LAND, enableAirActions(player, tag), { persistent: true });
+
+    // Setup Shi
+    player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
+    player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
+
+    var shield = createShield(player, 0.08 / 50, 0.15 / 50, 3, 37.5 / 50);
+    player.addEventListener(GameObjectEvent.SHIELD_HIT_RECEIVED, function (event: GameObjectEvent) {
+
+        var stats = event.data.hitboxStats;
+        if (stats.flinch && stats.damage > 0) {
+            var damage = stats.damage;
+            shield.shrink(damage / 70);
+        }
+    }, { persistent: true });
+
     player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
         finishZoom(event);
     }, { persistent: true });
 
-    player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
-    player.addEventListener(GameObjectEvent.LAND, enableAirActions(player, tag), { persistent: true });
-    player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
 
     var dodgeRollSpeed = player.getCharacterStat("dodgeRollSpeed");
     var jumps = player.getDoubleJumpCount();
+    var SHIELD_DROP_TIME = 3;
+    var timeTodrop = SHIELD_DROP_TIME;
+
+    var parryStatus: BodyStatusTimer = null;
+    var PARRY_WINDOW = 10;
+
+    player.addEventListener(EntityEvent.STATE_CHANGE, function (event: EntityEvent) {
+        var toState = event.data.toState;
+        var fromState = event.data.fromState;
+
+        if (toState == CState.PARRY_IN) { player.toState(CState.SHIELD_HURT, "shield_loop"); }
+
+        if (fromState == CState.SHIELD_OUT && parryStatus != null) { parryStatus.finish(); }
+
+        if (shield.getTimeToDrop() == 0 && toState == CState.SHIELD_OUT) {
+            if (parryStatus == null) {
+                parryStatus = player.applyGlobalBodyStatus(BodyStatus.INVINCIBLE_GRABBABLE, PARRY_WINDOW);
+            } else {
+                parryStatus.reset();
+            }
+        }
+
+    }, { persistent: true });
+
+    function onParried(event: GameObjectEvent) {
+        var foe: Character = event.data.foe;
+        if (player.getType() == EntityType.CHARACTER && player.inState(CState.SHIELD_OUT) && player.getCurrentFrame() < PARRY_WINDOW) {
+            darkenScreen(15, 10);
+            player.setDamage(player.getDamage() - event.data.hitboxStats.damage);
+            player.setKnockback(0, 0);
+            player.setYVelocity(0);
+            player.setXVelocity(0);
+            player.resetMomentum();
+            player.toState(CState.PARRY_SUCCESS);
+            player.updateAnimationStats({ bodyStatus: BodyStatus.INVINCIBLE });
+            player.addTimer(5, 1, function () {
+                if (player.inState(CState.PARRY_SUCCESS) && player.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+                    player.updateAnimationStats({ bodyStatus: BodyStatus.NONE });
+                }
+            }, { persistent: true });
+            var sound: AudioClip = AudioClip.play(getContent("UltimateParry"), { volume: 0.8, });
+            player.addTimer(30, 1, function () {
+                sound = null;
+            }, { persistent: true });
+
+            player.forceStartHitstop(player.getHitstop() + 11);
+            player.addTimer(11, 1, function () {
+                player.endAnimation();
+            });
+            foe.forceStartHitstop(foe.getHitstop() + 14);
+        }
+    }
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, onParried, { persistent: true });
+
+    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
+        event.data.hitboxStats.shieldstunMultiplier = 3;
+    }, { persistent: true });
+
     player.addTimer(1, -1, function () {
+
+
         var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
         var heldControls = player.getHeldControls();
         var up = heldControls.UP;
@@ -1093,8 +1436,9 @@ function ultimateMode(player: Character): void {
         }
 
         if (neutral
+            && !player.isOnFloor()
             && shields
-            && player.inStateGroup(CStateGroup.JUMP)
+            && player.inStateGroup(CStateGroup.AIRDASH)
             && player.getHitstun() == 0
             && player.getHitstop() == 0) {
             player.setXSpeed(0.1);
@@ -1184,7 +1528,7 @@ function activateFinalSmashMeter(player: Character) {
         } else {
             filter.hue += 0.01;
         }
-        if ((match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
+        if ((match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives") && player.getHeldControls().EMOTE && player.getHeldControls().DOWN) {
             if (meter.currentFrame + 1 < FINAL_SMASH_CHARGE) {
                 meter.currentFrame += 1;
             } else {
@@ -1222,6 +1566,7 @@ function activateFinalSmashMeter(player: Character) {
 
     }, { persistent: true });
 }
+
 function enableUltimateMode() {
     globalController.exports.data = {
         finalSmashForm: [false, false, false, false],
@@ -1240,12 +1585,19 @@ function enableUltimateMode() {
 }
 function smash64Mode(player: Character) {
     player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.5);
-
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_SIDE);
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_DOWN);
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_UP);
     player.updateCharacterStats({ airdashLimit: 0 });
 
+    var shield = createShield(player, 0.1 / 55, 0.0625 / 55, 3, 30 / 55);
+    player.addEventListener(GameObjectEvent.SHIELD_HIT_RECEIVED, function (event: GameObjectEvent) {
+        var stats = event.data.hitboxStats;
+        if (stats.flinch && stats.damage > 0) {
+            var damage = stats.damage;
+            shield.shrink(damage / 50);
+        }
+    }, { persistent: true });
 
     player.addTimer(1, -1, function () {
         if (player.inStateGroup(CStateGroup.ATTACK)) {
@@ -1271,6 +1623,12 @@ function smash64Mode(player: Character) {
     player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
         event.data.hitboxStats.directionalInfluence = false;
         event.data.hitboxStats.hitstopNudgeMultiplier = 2;
+        event.data.hitboxStats.shieldstunMultiplier = 5;
+
+
+
+
+
     }, { persistent: true });
 }
 
@@ -1620,6 +1978,15 @@ function parseTimeString(text: String) {
 
 }
 
+function disposeSprites(textSprites: Array<Sprite>) {
+    Engine.forEach(textSprites, function (sprite: Sprite, idx: Int) {
+        sprite.dispose();
+        return true;
+    }, []);
+    textSprites = [];
+}
+
+
 function createSpriteFromCharacter(char: String): Sprite {
     var res = getContent("text");
     var lowerCase = "abcdefghijklmnopqrstuvwxyz";
@@ -1650,9 +2017,28 @@ function createSpriteFromCharacter(char: String): Sprite {
     } else if (isUpperCase) {
         sprite.currentAnimation = "uppercase";
         sprite.currentFrame = upperCaseIndex + 1;
+    } else {
+        sprite.currentAnimation = "symbols";
+        sprite.currentFrame = symbols.length - 1;
     }
 
     return sprite;
+}
+
+
+function parseHexCode(hex: String): Int {
+    var total: Int = 0;
+    hex = hex.toUpperCase();
+    var digits = "0123456789ABCDEF";
+    var numPart = hex.substr(1);
+    var idx = 0;
+    while (idx < numPart.length) {
+        var power = numPart.length - idx - 1;
+        var num = digits.indexOf(numPart.charAt(idx));
+        total += Math.round(num * Math.pow(16, power));
+        idx++;
+    }
+    return total;
 }
 
 function parseFloat(text: String) {
@@ -1684,169 +2070,105 @@ function parseFloat(text: String) {
     return totalValue;
 }
 
-
-function parseIntProp(text: String, curr: Int, propName: String): { propValue: String, pos: Int, error: Boolean } {
-    var propVal = "";
-    if (text.substr(curr, propName.length) == propName) {
-        curr += propName.length;
-        while (text.charAt(curr) == " ") {
-            curr++;
-        }
-        if (text.charAt(curr) == "=") {
-            curr++;
-        } else {
-            return { error: true };
-        }
-        var currA = curr;
-        var nums = "0123456789.-";
-        while (nums.indexOf(text.charAt(curr)) >= 0) {
-            propVal += text.charAt(curr);
-            curr++;
-        }
-
-        while (text.charAt(curr) == " ") {
-            curr++;
-        }
-    } else {
-        return { error: true };
-    }
-    return { propValue: parseFloat(propVal), pos: curr, error: false };
+function syntaxError(text: String, curr: Int): { text: String, color: Int, error: Bool, length: Int } {
+    var errorMessage: String = [
+        "Error Rendering Text: \nUnexpected character ",
+        ("\"" + text.charAt(curr) + "\""),
+        "\nat character position ", curr.toString()].join("");
+    Engine.log(errorMessage, 0xFFC300);
+    return {
+        error: true,
+        color: 0xFF0000,
+        text: errorMessage
+    };
 }
 
-
-function parseTag(text: String): { text: String, hue: Float, saturation: Float, contrast: Float, error: Boolean, length: Int } {
-    var curr = 0;
-    var OPENING_TAG = 1;
-    var CONTENTS = 2;
-    var CLOSING_TAG = 3;
-    var state = OPENING_TAG;
-    var hue = 0;
-    var saturation = 0;
-    var contrast = 0;
-    var brightness = 0;
+function parseTag(text: String, curr: Int): { text: String, color: Int, error: Bool, length: Int } {
+    var color = 0;
     var content = "";
 
-    while (curr < text.length) {
-        if ("<" == text.charAt(curr) && curr == 0) {
+    if ("<" == text.charAt(curr)) { curr++; } else { return syntaxError(text, curr); }
+
+    while (text.charAt(curr) == " ") { curr++; }
+
+    if (text.charAt(curr) == "#") {
+        var hexString = "#";
+        var nums = "0123456789ABCDEFabcdef";
+        curr++;
+        while (nums.indexOf(text.charAt(curr)) >= 0) {
+            hexString += text.charAt(curr);
             curr++;
-        } else if (curr > 0 && text.charAt(curr) == "b" && state == OPENING_TAG) {
-            var result = parseIntProp(text, curr, "brightness");
+        }
+        color = parseHexCode(hexString);
+    } else { return syntaxError(text, curr); }
 
-            if (result != null && !result.error) {
-                curr = result.pos;
-                brightness = result.propValue;
-            } else {
-                return { error: true };
-            }
-        } else if (curr > 0 && text.charAt(curr) == "h" && state == OPENING_TAG) {
-            var result = parseIntProp(text, curr, "hue");
+    while (text.charAt(curr) == " ") { curr++; }
 
-            if (result != null && !result.error) {
-                curr = result.pos;
-                hue = result.propValue;
-            } else {
-                return { error: true };
-            }
-        } else if (curr > 0 && text.charAt(curr) == "s" && state == OPENING_TAG) {
-            var result = parseIntProp(text, curr, "saturation");
-            if (result != null && !result.error) {
-                curr = result.pos;
-                saturation = result.propValue;
-            } else {
-                return { error: true };
-            }
-        } else if (curr > 0 && text.charAt(curr) == "c" && state == OPENING_TAG) {
-            var result = parseIntProp(text, curr, "contrast");
-            if (result != null && !result.error) {
-                curr = result.pos;
-                contrast = result.propValue;
-            } else {
-                return { error: true };
-            }
-        } else if (curr > 0 && text.charAt(curr) == ">" && state == OPENING_TAG) {
-            curr++;
-            state = CONTENTS;
-            while (text.charAt(curr) != "<") {
-                if (text.charAt(curr) == "\\") {
-                    if (curr + 2 < text.length) {
-                        content += text.charAt(curr + 1);
-                        curr += 2;
+    if (text.charAt(curr) == ">") { curr++; } else { return syntaxError(text, curr); }
 
-                    } else {
-                        return { error: true };
-                    }
-                } else {
-                    content += text.charAt(curr);
-                    curr++;
-                }
-            }
-            state = CLOSING_TAG;
-            var last = (text.substr(curr, 3));
-            if (last == "</>") {
-                curr += 3;
-                return { hue: hue, saturation: saturation, contrast: contrast, text: content, length: curr };
-            } else {
-                return { error: true };
-            }
+    while (text.charAt(curr) != "<") {
+        if (text.charAt(curr) == "\\" && curr + 2 < text.length) {
+            content += text.charAt(curr + 1);
+            curr += 2;
         } else {
+            content += text.charAt(curr);
             curr++;
         }
     }
 
-    return { brightness: brightness, hue: hue, saturation: saturation, contrast: contrast, text: content, length: curr };
+    if (text.charAt(curr) == "<") { curr++; } else { return syntaxError(text, curr); };
+
+    if (text.charAt(curr) == "/") { curr++; } else { return syntaxError(text, curr); };
+
+    if (text.charAt(curr) == ">") { curr++; } else { return syntaxError(text, curr); };
+
+    return { color: color, text: content, length: curr };
 }
 
-function(createColorShader) {
-    var shader = new RgbaColorShader();
-    shader.color = color;
-    shader.redMultiplier = 1.0 / 3.0;
-    shader.greenMultiplier = 1.0 / 2.0;
-    shader.blueMultiplier = 1;
-    return shader;
-}
-function parseText(text: String) {
-    var nodes: Array<{ text: String, hue: Float, saturation: Float, contrast: Float, error: Boolean, length: Int }> = [];
+function parseText(text: String): Array<{ text: String, color: Int, error: Bool, length: Int }> {
+    var nodes: Array<{ text: String, color: Int, error: Bool, length: Int }> = [];
     var curr = 0;
     var nodeIdx = 0;
     while (curr < text.length) {
         if (nodes[nodeIdx] == null) {
             nodes[nodeIdx] = {
                 text: "",
-                hue: 0,
-                red: 256;
-                brightness: 1,
-                saturation: 0,
-                contrast: 0,
+                color: 0xFFFFFF,
                 length: 0,
                 error: false
             };
         }
 
-        if (nodes[nodeIdx].error == true) {
-            return null;
-        }
-        if (text.charAt(curr) == "\\") {
-            if (curr + 2 < text.length) {
-                nodes[nodeIdx].text += text.charAt(curr + 1);
+        switch (text.charAt(curr)) {
+            case "\\": {
+                if (curr + 2 < text.length) {
+                    nodes[nodeIdx].text += text.charAt(curr + 1);
+                    nodes[nodeIdx].length += 1;
+                    curr += 2;
+                } else {
+                    nodes.push(syntaxError(text, curr));
+                    break;
+                }
+            };
+            case "<": {
+                nodeIdx++;
+                var result = parseTag(text, curr);
+                if (!result.error) {
+                    curr = result.length;
+                    nodes[nodeIdx] = result;
+                    nodes[nodeIdx].color = result.color;
+                    nodeIdx++;
+                } else {
+                    nodes[nodeIdx] = result;
+                    break;
+                }
+            };
+            default: {
+                nodes[nodeIdx].text += text.charAt(curr);
                 nodes[nodeIdx].length += 1;
-                curr += 2;
-            } else {
-                return { error: true };
-            }
-        } else if (text.charAt(curr) == "<") {
-            nodeIdx++;
-            var result = parseTag(text.substr(curr));
-            curr += result.length;
-            nodes[nodeIdx] = result;
-            nodeIdx++;
-            // return nodes;
-        } else {
-            nodes[nodeIdx].text += text.charAt(curr);
-            nodes[nodeIdx].length += 1;
-            curr++;
-            if (curr > text.length - 5) {
-                return nodes;
-            }
+                curr++;
+            };
+
         }
     }
     return nodes;
@@ -1854,76 +2176,59 @@ function parseText(text: String) {
 
 
 
-
-
-function renderLines(lines: Array<String>, sprites: Array<Sprite>, container: Container) {
-    renderText(lines.join("\n"), sprites, container, { autoLinewrap: false });
+function createColorShader(color) {
+    var shader = new RgbaColorShader();
+    shader.color = color;
+    shader.redMultiplier = 1 / 3;
+    shader.greenMultiplier = 1 / 2;
+    shader.blueMultiplier = 1;
+    return shader;
 }
 
 
-function renderText(text: String, sprites: Array<Sprite>, container: Container, options: {
-    autoLinewrap: Int,
-    delay: Int,
-}) {
-    var parsed: Array<{
-        text: String,
-        hue: Float,
-        saturation: Float,
-        brightness: Float,
-        contrast: Float,
-        error: Boolean,
-        length: number
-    }> = parseText(text);
-    Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
-        sprite.dispose();
-        return true;
-    }, []);
+function renderText(
+    text: String,
+    sprites: Array<Sprite>,
+    container: Container,
+    options: { autoLinewrap: Int, delay: Int, x: Int, y: Int, owner: Entity }
+): { duration: Int, sprites: Array<Sprite> } {
+    var parsed: Array<{ text: String, color: Float, error: Boolean, length: number }> = parseText(text);
+    disposeSprites(sprites);
 
     sprites = [];
     var line = 0;
     var col = 0;
-    var maxCol = options.autoLinewrap;
 
-    function makeSprite(char: String, filterOpts: {
-        hue: Float, saturation: Float, brightness: Float, contrast: Float,
-    }) {
+    function makeSprite(char: String, shaderOptions: { color: Int }) {
         if (options != null && options.autoLinewrap > 0 && options.autoLinewrap < col && !options.wordWrap) {
             col = 0;
             line++;
         }
         var sprite: Sprite = createSpriteFromCharacter(char);
         sprite.x = col * 6;
-        sprite.y = -64 + line * 10;
-        var filter: HsbcColorFilter = new HsbcColorFilter();
-        filter.brightness = 1;
-        filter.contrast = filterOpts.contrast;
-        filter.saturation = filterOpts.saturation;
-        filter.hue = filterOpts.hue;
-        sprite.addFilter(filter);
+        if (options != null && options.x != null) {
+            sprite.x += options.x;
+        }
+        sprite.y = line * 10;
+        if (options != null && options.y != null) {
+            sprite.y += options.y;
+        }
+        var shader: RgbaColorShader = createColorShader(shaderOptions.color);
+        sprite.addShader(shader);
         return sprite;
     }
 
-    function insertSprite(sprite: Sprite) {
-        sprites.push(sprite);
-    }
-    function showSprite(sprite: Sprite) {
-        container.addChild(sprite);
-    }
-
-
     Engine.forEach(parsed, function (node: {
-        text: String, brightness: Float, hue: number, saturation: number, contrast: number, error: Boolean, length: number
+        text: String, color: Int, error: Boolean, length: number
     }, _: Int) {
         Engine.forCount(node.text.length, function (idx: Int) {
-            var toLimit = node.text.substr(idx, maxCol - col);
-            var lastSpace = toLimit.lastIndexOf(" ");
             var char: String = node.text.charAt(idx);
             if (char == "\n") {
                 line++;
                 col = 0;
             } else {
-                var sprite = makeSprite(char, { hue: node.hue, saturation: node.saturation, contrast: node.contrast, brightness: node.brightness });
-                insertSprite(sprite);
+                var sprite = makeSprite(char, { color: node.color });
+                sprites.push(sprite);
                 col++;
             }
             return true;
@@ -1931,21 +2236,36 @@ function renderText(text: String, sprites: Array<Sprite>, container: Container, 
         return true;
     }, []);
 
-    var dummy: Projectile = match.createProjectile(getContent("dummyProj"), null);
+    var owner = self;
+    if (options.owner != null) {
+        owner = options.owner;
+    }
+
     if (options.delay != null && options.delay > 0) {
         Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
-            dummy.addTimer(idx * options.delay, 1, function () {
-                showSprite(sprite);
+            owner.addTimer(idx * options.delay, 1, function () {
+                container.addChild(sprite);
             }, { persistent: true });
             return true;
         }, []);
+
+        return { sprites: sprites, duration: sprites.length * options.delay };
     } else {
-        Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
-            showSprite(sprite);
+        Engine.forEach(sprites, function (sprite: Sprite, _idx: Int) {
+            container.addChild(sprite);
             return true;
         }, []);
+
+        return { sprites: sprites, duration: -1 };
     }
-    return sprites;
+}
+
+function renderLines(lines: Array<String>,
+    sprites: Array<Sprite>,
+    container: Container,
+    options: { delay: Int, x: Int, y: Int }): { duration: Int, sprites: Array<Sprite>, owner: Entity } {
+    var renderData = renderText(lines.join("\n"), sprites, container, { autoLinewrap: false, delay: delay, x: options.x, y: options.y, owner: options.owner });
+    return renderData;
 }
 
 function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset: Int) {
@@ -2143,8 +2463,6 @@ function jumpCancels(player: Character, duration: Int) {
         player.removeFilter(innerGlow);
         player.removeFilter(outerGlow);
     }, { persistent: true });
-
-
 }
 
 
@@ -2191,13 +2509,19 @@ function createMissionStatus(player: Character) {
     sprite.alpha = 1;
     container.addChildAt(sprite, 999);
     globalController.exports.data.missionStatusSprites[port] = sprite;
+    // var rainbow = [0xe81416, 0xffa500, 0xfaeb36, 0x79c314, 0x487de7, 0x4b369d, 0x70369d];
+    // Engine.forEach(rainbow, function (color: Int, idx: Int) {
+    //     var glow = new GlowFilter();
+    //     glow.color = color;
+    //     player.addFilter(glow);
+    //     return true;
+    // }, []);
 
 }
 
 function refreshMissionStatus(player: Character) {
     var port = player.getPlayerConfig().port;
     var sprite: Sprite = globalController.exports.data.missionStatusSprites[port];
-
     switch (getMissionStatus(player)) {
         case MISSION_PENDING: sprite.currentAnimation = "pending";
         case MISSION_FAIL: sprite.currentAnimation = "fail";
@@ -2216,7 +2540,7 @@ function landStrongs(times: Int, duration: Int) {
     var players: Array<Character> = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
         var prevTime = match.getElapsedFrames();
-        var count = [0];
+        var count = 0;
         var hitDealt = function (event: GameObjectEvent) {
             var attacker: Character = event.data.self;
             var currTime = match.getElapsedFrames();
@@ -2226,8 +2550,8 @@ function landStrongs(times: Int, duration: Int) {
                     || attacker.inState(CState.STRONG_UP_ATTACK))
                 && (currTime - prevTime) > 100) {
                 prevTime = currTime;
-                count[0] += 1;
-                if (count[0] >= times) {
+                count += 1;
+                if (count == times) {
                     setMissionStatus(player, MISSION_SUCCESS);
                 }
             }
@@ -2236,7 +2560,7 @@ function landStrongs(times: Int, duration: Int) {
         player.addEventListener(GameObjectEvent.HIT_DEALT, hitDealt, { persistent: true });
         player.addTimer(duration, 1, function () {
             player.removeEventListener(GameObjectEvent.HIT_DEALT, hitDealt);
-            if (count[0] >= times) {
+            if (count >= times) {
                 setMissionStatus(player, MISSION_SUCCESS);
             } else {
                 setMissionStatus(player, MISSION_FAIL);
@@ -2244,9 +2568,8 @@ function landStrongs(times: Int, duration: Int) {
         }, { persistent: true });
 
     }, []);
-
-
 }
+
 function noHit(duration: Int) {
     var players: Array<Character> = match.getPlayers();
 
@@ -2353,49 +2676,54 @@ function clearMissionData() {
     globalController.exports.data.missionData = [{}, {}, {}, {}];
 }
 
-function displayMissionPrompt(mission: String) {
+function displayMissionPrompt(mission: Array<String>) {
 
-    var missionPrompt: Sprite = Sprite.create(getContent("missionPrompt"));
-    missionPrompt.x = Math.abs(stage.getCameraBounds().getX() / 2.75);
-    missionPrompt.y = Math.abs(stage.getCameraBounds().getY() / 2);
-    missionPrompt.scaleX = 3;
-    missionPrompt.scaleY = 3;
-    missionPrompt.currentAnimation = mission;
-    var dummy: Projectile = match.createProjectile(getContent("dummyProj"), null);
-    globalDummy = dummy;
+    var sprites: Array<Sprite> = [];
+    var vfx: Vfx = match.createVfx(new VfxStats({
+        x: camera.getViewportWidth() / 2,
+        y: camera.getViewportHeight() / 2,
+        spriteContent: getContent("text"),
+        animation: "base",
+        loop: true
+    }), null);
 
-    dummy.setScaleX(0.1);
-    dummy.setScaleY(0.1);
+    vfx.setX(vfx.getX() - vfx.getSprite().width / 2);
+    camera.getForegroundContainer().addChildAt(vfx.getViewRootContainer(), 0);
 
-    camera.getForegroundContainer().addChild(missionPrompt);
-    var totalFrames = missionPrompt.totalFrames * 2;
-    var curr = 0;
-    match.freezeScreen(totalFrames * 2, [self, dummy]);
-    dummy.addTimer(2, totalFrames * 2, function () {
-        curr += 1;
-        if (missionPrompt.currentAnimation == mission && missionPrompt.currentFrame < missionPrompt.totalFrames) {
-            missionPrompt.currentFrame += 1;
-        } else if (curr == totalFrames) {
-            missionPrompt.currentAnimation = "empty";
-        } else if (curr == totalFrames) {
-            missionPrompt.dispose();
-        }
+    var glow = new GlowFilter();
+    glow.color = 0xFFFFFF;
+    glow.radius = 1;
+    vfx.addFilter(glow);
+    var renderData = renderText(mission, sprites, vfx.getViewRootContainer(), {
+        delay: 3, autoLinewrap: false,
+        x: 0, y: 0,
+        owner: vfx
+    });
+    sprites = renderData.sprites;
+
+    match.freezeScreen(renderData.duration + 90, [vfx]);
+
+    vfx.addTimer(renderData.duration + 90, 1, function () {
+        Engine.forEach(sprites, function (sprite: Sprite, idx: Int) {
+            sprite.dispose();
+            return true;
+        }, []);
+        vfx.destroy();
 
     }, { persistent: true });
-
-    return (totalFrames * 2);
 }
 
-function generateMission(displayString: String, missionFn, duration: Int, rewardFn) {
+function generateMission(displayString: String, missionFn, duration: Int, rewardFn, instruction: String) {
     return {
         displayString: displayString,
         missionFn: missionFn,
         duration: duration,
-        rewardFn: rewardFn
+        rewardFn: rewardFn,
+        instruction: instruction
     }
 }
 
-function runMission(mission) {
+function runMission(mission: { displayString: Array<String>, duration: Int, missionFn: Any, rewardFn: Any, instruction: String }) {
     var p: Character = self.getOwner();
     globalController.exports.data.cooldown = true;
     displayMissionPrompt(mission.displayString);
@@ -2403,6 +2731,25 @@ function runMission(mission) {
     mission.missionFn();
     var timeSprites = [];
     var curr = 0;
+
+    var nodes = parseText(mission.instruction);
+    var padding = 0;
+    Engine.forEach(nodes, function (node, idx) {
+        padding += node.text.length;
+        return true;
+    }, []);
+    var textSprites = [];
+    var renderData = renderText(mission.instruction, textSprites, camera.getForegroundContainer(), {
+        x: camera.getViewportWidth(),
+        y: 100,
+        owner: p,
+        delay: 3
+    });
+    textSprites = renderData.sprites;
+    Engine.forEach(textSprites, function (sprite: Sprite, idx: Int) {
+        sprite.x -= padding * 6;
+    }, []);
+
 
     p.addTimer(1, mission.duration, function () {
         curr += 1;
@@ -2413,13 +2760,14 @@ function runMission(mission) {
     }, { persistent: true });
 
     p.addTimer(mission.duration, 1, function () {
-        globalDummy.destroy();
-
         Engine.forEach(timeSprites, function (sprite: Sprite, _idx: Int) {
             sprite.dispose();
             return true;
         }, []);
-
+        Engine.forEach(renderData.sprites, function (sprite: Sprite, _idx: Int) {
+            sprite.dispose();
+            return true;
+        }, []);
         Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
             if (getMissionStatus(player) == MISSION_SUCCESS) {
                 mission.rewardFn(player);
@@ -2427,7 +2775,7 @@ function runMission(mission) {
             return true;
         }, []);
 
-        p.addTimer(60 * 35, 1, function () {
+        p.addTimer(60 * 30, 1, function () {
             clearMissionData();
             globalController.exports.data.cooldown = false;
         }, { persistent: true });
@@ -2437,6 +2785,9 @@ function runMission(mission) {
     var totalMissionTime = mission.duration;
     return totalMissionTime;
 }
+
+
+
 
 
 function enableMissionMode() {
@@ -2462,35 +2813,53 @@ function enableMissionMode() {
     }, []);
     clearMissionData();
 
-
-
-    var deal50Regen = generateMission("deal50Regen",
+    var deal50Regen = generateMission(
+        ["<#f1c40f>MISSION: </> <#e74c3c>Deal</> 50 damage",
+            "<#28b463>REWARD:</> <#ff8c69>Regeneration</>",
+            "<#d2b4de>TIME LIMIT:</> 20 Seconds"].join("\n"),
         function () { dealDamage(60 * 20, 50); },
         60 * 20,
-        function (player: Character) { regenBuff(player, 60 * 10); });
+        function (player: Character) { regenBuff(player, 60 * 10); },
+        "<#e74c3c>Deal</> 50 damage");
 
-    var noHitDefense = generateMission("noHitDefense",
+    var noHitDefense = generateMission(
+        ["<#f1c40f>MISSION: </> Don't get <#e74c3c>Hit</>",
+            "<#28b463>REWARD:</> <#00bfff>Defense Buff</>",
+            "<#d2b4de>TIME LIMIT:</> 15 Seconds"].join("\n"),
         function () { noHit(60 * 15); },
         60 * 15,
-        function (player: Character) { defenseBuff(player, 60 * 10); });
+        function (player: Character) { defenseBuff(player, 60 * 10); },
+        "Don't get <#e74c3c>Hit</>");
 
-    var landStrongMobility = generateMission("landStrongMovement",
+    var landStrongMobility = generateMission(
+        ["<#f1c40f>MISSION: </> Land <#e74c3c>4 Strongs</>",
+            "<#28b463>REWARD:</> <#00cc99>Mobility Buff</>",
+            "<#d2b4de>TIME LIMIT:</> 20 Seconds"].join("\n"),
         function () { landStrongs(4, 60 * 20); },
         60 * 20,
-        function (player: Character) { mobilityBuff(player, 60 * 10); });
+        function (player: Character) { mobilityBuff(player, 60 * 10); },
+        "Land <#e74c3c>4 Strongs</>");
 
 
-    var landedParryCancel = generateMission("parryJumpCancel",
+    var landedParryCancel = generateMission(
+        ["<#f1c40f>MISSION: </> Successfully <#e74c3c>Parry</> an attack",
+            "<#28b463>REWARD:</> <#ff8c69>Jump Cancels</>",
+            "<#d2b4de>TIME LIMIT:</> 15 Seconds"].join("\n"),
         function () { landedParry(60 * 15); },
         60 * 15,
-        function (player: Character) { jumpCancels(player, 60 * 10); });
+        function (player: Character) { jumpCancels(player, 60 * 10); }
+        , "Successfully <#e74c3c>Parry</> an attack");
 
-    var landedSpikes = generateMission("spikeAttackBoost",
+    var landedSpikes = generateMission(
+        ["<#f1c40f>MISSION: </> Land <#e74c3c>3 Spikes</>",
+            "<#28b463>REWARD:</> <#FF0000>Attack Buff</>",
+            "<#d2b4de>TIME LIMIT:</> 15 Seconds"].join("\n"),
         function () { landedSpikes(3, 60 * 15); },
         60 * 15,
-        function (player: Character) { attackBuff(player, 60 * 10); });
+        function (player: Character) { attackBuff(player, 60 * 10); },
+        "Land <#e74c3c>3 Spikes</>");
 
-    var missions = [noHitDefense, deal50Regen, landedParryCancel, landStrongMobility, landedSpikes];
+    var missions = [noHitDefense, deal50Regen, landStrongMobility, landedParryCancel, landedSpikes];
 
 
     p.addTimer(60, -1, function () {

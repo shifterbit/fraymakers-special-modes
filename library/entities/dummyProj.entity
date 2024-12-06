@@ -294,11 +294,11 @@
       "pluginMetadata": {
       },
       "rotation": 0,
-      "scaleX": 256,
-      "scaleY": 256,
+      "scaleX": 5,
+      "scaleY": 5,
       "type": "COLLISION_BOX",
-      "x": -128,
-      "y": -128
+      "x": 0,
+      "y": 0
     }
   ],
   "tags": [

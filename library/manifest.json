@@ -117,7 +117,7 @@
       "objectStatsId": "dummyProjStats",
       "animationStatsId": "dummyProjAnimationStats",
       "hitboxStatsId": "dummyProjHitboxStats",
-      "scriptId": "nothingScript",
+      "scriptId": "dummyProjScript",
       "costumesId": "assisttemplateCostumes"
     },
     {
