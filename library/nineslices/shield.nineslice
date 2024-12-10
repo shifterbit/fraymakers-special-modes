@@ -1,0 +1,18 @@
+{
+  "borderBottom": null,
+  "borderLeft": 0,
+  "borderRight": 0,
+  "borderTop": 0,
+  "export": true,
+  "guid": "c07d8d24-fb31-4c6c-85a8-a4427039b949",
+  "id": "shieldSlice",
+  "imageAsset": "e2d0273f-261b-4c1d-9155-682427fd4c26",
+  "pluginMetadata": {
+  },
+  "plugins": [
+    "com.fraymakers.FraymakersMetadata"
+  ],
+  "tags": [
+  ],
+  "version": 11
+}
