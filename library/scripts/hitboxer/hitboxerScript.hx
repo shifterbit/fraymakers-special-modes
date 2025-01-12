@@ -11,19 +11,24 @@ function initialize() {
 
 
 	self.setCostumeIndex(self.getOwner().getCostumeIndex());
+	Engine.log("HITBOX");
 
 	self.setState(PState.ACTIVE);
 
 	self.setXSpeed(X_SPEED);
 	self.setYSpeed(Y_SPEED);
+	self.setX(self.getOwner().getX());
+	self.setY(self.getOwner().getY() + self.getOwner().getSprite().height);
 }
 
 
 function update() {
 	self.setX(self.getOwner().getX());
-	self.setY(self.getOwner().getY());
+	self.setY(self.getOwner().getY() + self.getOwner().getSprite().height);
 }
 
 function onTeardown() {
+	Engine.log("HITBOX DED");
+
 
 }

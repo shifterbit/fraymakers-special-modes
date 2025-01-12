@@ -3,7 +3,7 @@
 	spriteContent: self.getResource().getContent("hitboxer"),
 	stateTransitionMapOverrides: [
 		PState.ACTIVE => {
-			animation: "projectileSpawn"
+			animation: "hitbox"
 		},
 		PState.DESTROYING => {
 			animation: "projectileDestroy"

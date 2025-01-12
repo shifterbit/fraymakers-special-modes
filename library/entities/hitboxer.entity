@@ -6,7 +6,17 @@
         "ee9b2f02-891d-4546-9c1d-e32616c5b6c8",
         "09131bb1-0afd-4daf-b886-e0c1ce033d6b"
       ],
-      "name": "projectileSpawn",
+      "name": "hitbox",
+      "pluginMetadata": {
+      }
+    },
+    {
+      "$id": "a961cab8-85f6-43d6-997f-0ad2b9653ae9",
+      "layers": [
+        "268eb183-d0e4-47cd-8524-f73860887ff1",
+        "04f461ad-e951-40e9-ac8f-2a7c8f9e6865"
+      ],
+      "name": "grabbox",
       "pluginMetadata": {
       }
     },
@@ -151,6 +161,26 @@
       "pluginMetadata": {
       },
       "symbol": "428cb19a-d60b-4160-9e81-0d91150cd6c4",
+      "tweenType": "LINEAR",
+      "tweened": false,
+      "type": "COLLISION_BOX"
+    },
+    {
+      "$id": "8c09f3bc-e346-4dfd-b9e0-c1ac2e77aafb",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "symbol": null,
+      "tweenType": "LINEAR",
+      "tweened": false,
+      "type": "IMAGE"
+    },
+    {
+      "$id": "f09b527d-9f78-4d88-82de-9842f7fdff7a",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "symbol": "9155d62d-04fb-4e4a-a560-7d3487fa00ce",
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "COLLISION_BOX"
@@ -314,6 +344,36 @@
         }
       },
       "type": "COLLISION_BOX"
+    },
+    {
+      "$id": "268eb183-d0e4-47cd-8524-f73860887ff1",
+      "hidden": false,
+      "keyframes": [
+        "8c09f3bc-e346-4dfd-b9e0-c1ac2e77aafb"
+      ],
+      "locked": false,
+      "name": "Image Layer",
+      "pluginMetadata": {
+      },
+      "type": "IMAGE"
+    },
+    {
+      "$id": "04f461ad-e951-40e9-ac8f-2a7c8f9e6865",
+      "defaultAlpha": 0.5,
+      "defaultColor": "0xff0000",
+      "hidden": false,
+      "keyframes": [
+        "f09b527d-9f78-4d88-82de-9842f7fdff7a"
+      ],
+      "locked": false,
+      "name": "hitbox0",
+      "pluginMetadata": {
+        "com.fraymakers.FraymakersMetadata": {
+          "collisionBoxType": "HIT_BOX",
+          "index": 0
+        }
+      },
+      "type": "COLLISION_BOX"
     }
   ],
   "paletteMap": {
@@ -334,16 +394,16 @@
       "$id": "be2e5a95-e79a-4422-b6f5-e4a3a9e6ce5d",
       "alpha": null,
       "color": null,
-      "pivotX": 50,
-      "pivotY": 50,
+      "pivotX": 15,
+      "pivotY": 15,
       "pluginMetadata": {
       },
       "rotation": 0,
-      "scaleX": 100,
-      "scaleY": 100,
+      "scaleX": 30,
+      "scaleY": 30,
       "type": "COLLISION_BOX",
-      "x": -50,
-      "y": -100
+      "x": -15,
+      "y": -15
     },
     {
       "$id": "428cb19a-d60b-4160-9e81-0d91150cd6c4",
@@ -359,6 +419,21 @@
       "type": "COLLISION_BOX",
       "x": -50,
       "y": -99
+    },
+    {
+      "$id": "9155d62d-04fb-4e4a-a560-7d3487fa00ce",
+      "alpha": null,
+      "color": null,
+      "pivotX": 5,
+      "pivotY": 3,
+      "pluginMetadata": {
+      },
+      "rotation": 0,
+      "scaleX": 5,
+      "scaleY": 5,
+      "type": "COLLISION_BOX",
+      "x": -2.5,
+      "y": -2.5
     }
   ],
   "tags": [
