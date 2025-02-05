@@ -1,8 +1,61 @@
 // Runs on object init
-function initialize() {
+var player1: Character = null;
+var player1StatusId: Int = null;
 
+var player2: Character = null;
+var player2StatusId: Int = null;
 
+var player3: Character = null;
+var player3StatusId: Int = null;
+
+var player4: Character = null;
+var player4StatusId: Int = null;
+
+function setupVariables() {
+    Engine.forCount(match.getPlayers(), function (player: Character, _idx: Int) {
+        if (player1 == null) {
+            player1 = player;
+        } else if (player2 == null) {
+            player2 = player;
+        } else if (player3 == null) {
+            player3 = player;
+        } else if (player4 == null) {
+            player4 = player;
+        }
+        return true;
+    }, []);
 }
+
+
+function updateGlows() {
+    var player1Score = (2000 * player1.getScore()) - player1.getDamage();
+    var player2Score = (2000 * player2.getScore()) - player2.getDamage();
+    var player3Score = (2000 * player3.getScore()) - player3.getDamage();
+    var player4Score = (2000 * player4.getScore()) - player4.getDamage();
+
+
+    player1Glow.alpha = 0;
+    player2Glow.alpha = 0;
+    player3Glow.alpha = 0;
+    player4Glow.alpha = 0;
+
+
+
+    if (player1Score > player2Score && player1Score > player3Score && player1Score > player4Score) {
+        player1Glow.alpha = 1;
+
+    } else if (player2Score > player1Score && player2Score > player3Score && player2Score > player4Score) {
+        player2Glow.alpha = 1;
+
+    } else if (player3Score > player2Score && player3Score > player1Score && player3Score > player4Score) {
+        player3Glow.alpha = 1;
+
+    } else if (player4Score > player2Score && player4Score > player3Score && player4Score > player1Score) {
+        player4Glow.alpha = 1;
+    }
+}
+
+
 
 function calculateDistanceFromTarget(target: Character) {
 
@@ -16,11 +69,47 @@ function calculateDistanceFromTarget(target: Character) {
 
 }
 
+
+function healFriendsOnce(maxDistance: Int, healing: Int) {
+    var owner: Character = self.getOwner();
+    Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
+        var isOwner: Bool = player == owner;
+        var isOnTeam: Bool = isOwner || (player.getPlayerConfig().team == owner.getPlayerConfig().team);
+
+        if (isOnTeam) {
+            if (calculateDistanceFromTarget(player) <= maxDistance) {
+                player.addDamage(-healing);
+            }
+        }
+        return true;
+    }, []);
+}
+
+
+// We dont have a timer here
+function healFriends(maxDistance: Int, healing: Int) {
+    var owner: Character = self.getOwner();
+    Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
+        var isOwner: Bool = player == owner;
+        var isOnTeam: Bool = isOwner || (player.getPlayerConfig().team == owner.getPlayerConfig().team);
+
+
+        if (isOnTeam) {
+            if (calculateDistanceFromTarget(player) <= maxDistance) {
+                player.addDamage(-healing);
+            }
+        }
+        return true;
+    }, []);
+}
+
+
 function healFriends(maxDistance: Int, repeats: Int, interval: Int, healing: Int) {
     var owner: Character = self.getOwner();
     Engine.forEach(match.getPlayers, function (player: Character, _idx: Int) {
         var isOwner: Bool = player == owner;
-        var isOnTeam: Bool = isOwner || player.getPlayerConfig().team == owner.getPlayerConfig().team;
+        var isOnTeam: Bool = !owner.getFoes().contains(player);
+
 
         if (isOnTeam) {
             self.addTimer(interval, repeats, function () {

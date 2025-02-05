@@ -5,7 +5,9 @@
       "layers": [
         "f0a88d09-5229-42ce-952d-b64a38873bc2",
         "583c477f-be80-48d9-83ef-92cd08e6cd95",
-        "0e92a921-1e01-48cb-ad30-8b7a0117e121"
+        "0e92a921-1e01-48cb-ad30-8b7a0117e121",
+        "07515c27-cde4-49ff-97bd-fe8e225539d0",
+        "61091fd3-3884-4a27-8606-38fce2d838fc"
       ],
       "name": "animation0",
       "pluginMetadata": {
@@ -93,6 +95,38 @@
       "tweenType": "LINEAR",
       "tweened": false,
       "type": "IMAGE"
+    },
+    {
+      "$id": "a753a00c-7324-4040-aee2-fbddf7062a1c",
+      "code": "",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
+    },
+    {
+      "$id": "2358ac84-308d-4adf-a797-6c95eb212713",
+      "code": "",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
+    },
+    {
+      "$id": "ada989b5-63fa-40d7-8fcf-58f875c181df",
+      "code": "AudioClip.play(self.getResource().getContent(\"grab\"));\nself.reactivateHitboxes();\nAudioClip.play(self.getResource().getContent(\n        Random.getChoice([\"getup\", \"getup2\"])));\n\nself.addEventListener(GameObjectEvent.HIT_DEALT, function (event:GameObjectEvent) {\n    canDashCancel = true;\n    self.addTimer(5, 1, function () {\n        canDashCancel = false;\n    });\n});",
+      "length": 1,
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
+    },
+    {
+      "$id": "49681f32-b946-4e25-8d5a-4e1d1fb95970",
+      "code": "if (canDashCancel) {\n    if (self.getHeldControls().LEFT != self.getHeldControls().RIGHT) {\n        self.playAnimation(\"dash_cancel\");\n        canDashCancel = false;\n    };\n}\n",
+      "length": 62,
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
     }
   ],
   "layers": [
@@ -206,6 +240,34 @@
       "pluginMetadata": {
       },
       "type": "IMAGE"
+    },
+    {
+      "$id": "61091fd3-3884-4a27-8606-38fce2d838fc",
+      "hidden": false,
+      "keyframes": [
+        "a753a00c-7324-4040-aee2-fbddf7062a1c",
+        "49681f32-b946-4e25-8d5a-4e1d1fb95970"
+      ],
+      "language": "hscript",
+      "locked": false,
+      "name": "Frame Script Layer",
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
+    },
+    {
+      "$id": "07515c27-cde4-49ff-97bd-fe8e225539d0",
+      "hidden": false,
+      "keyframes": [
+        "2358ac84-308d-4adf-a797-6c95eb212713",
+        "ada989b5-63fa-40d7-8fcf-58f875c181df"
+      ],
+      "language": "hscript",
+      "locked": false,
+      "name": "Frame Script Layer",
+      "pluginMetadata": {
+      },
+      "type": "FRAME_SCRIPT"
     }
   ],
   "paletteMap": {

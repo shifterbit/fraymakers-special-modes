@@ -201,6 +201,7 @@ function slug(mode: String) {
 
 function displayMode() {
     var player: Character = self.getOwner();
+
     var text = globalMode + "\nmode";
     var emptyVfx = match.createVfx(new VfxStats({
         x: 150,
@@ -838,21 +839,6 @@ function distanceFromDeathBounds(entity: Entity, components) {
 
 }
 
-
-function calculateKnockback(victim: Character, stats: HitboxStats) {
-    var percentage = victim.getDamage();
-    var weight = victim.getGameObjectStat("weight");
-    var damage = stats.damage;
-    var base = stats.baseKnockback;
-    var scaling = stats.knockbackGrowth / 100;
-    var ratio = 1 / (5.57885284503643);
-    var percentDamageExpr = (percentage / 10) + ((percentage * damage) / 20);
-    var weightExpr = 1.4 * 200 / (weight + 100);
-    var calculatedKnockback = ratio * ((((percentDamageExpr * weightExpr) + 18) * scaling) + base);
-    return calculatedKnockback;
-}
-
-
 function finishZoom(event: GameObjectEvent) {
     var victim: Character = event.data.self;
     if (!victim.hasBodyStatus(BodyStatus.INVINCIBLE) && event.data.hitboxStats.flinch) {
@@ -880,12 +866,13 @@ function finishZoom(event: GameObjectEvent) {
         var stats = event.data.hitboxStats;
         var angle = stats.angle;
         var autoLinkAngles = [SpecialAngle.AUTOLINK_STRONGER, SpecialAngle.AUTOLINK_STRONGEST, SpecialAngle.AUTOLINK_WEAK];
-        if (autoLinkAngles.indexOf(angle) < 0 && (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1))) {
+        if (autoLinkAngles.indexOf(stats.rawAngle) < 0 && (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1))) { 
             applyKillSpark(0, victim, Math.getAngleFromVelocity(xVel, yVel), 1.5, victim);
             event.data.hitboxStats.hitstop = event.data.hitboxStats.hitstop + 10;
             event.data.hitboxStats.selfHitstop = event.data.hitboxStats.selfHitstop + 10;
             var duration = stats.selfHitstop + 10;
 
+            // Training Mode or Last Stock
             if (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives" || gameEndingStock(victim)) {
                 zoomInOnPlayer(event.data.self, duration + 35);
                 if (event.data.foe != null) {
@@ -896,7 +883,7 @@ function finishZoom(event: GameObjectEvent) {
                 slowMotion(duration + 35, true);
                 AudioClip.play(getContent("finishZoom"), { loop: false, volume: 0.38 });
 
-            } else {
+            } else { // Regular Kills
                 if (event.data.foe != null) {
                     event.data.foe.forceStartHitstop(stats.hitstop + 20, true);
                 }
@@ -983,42 +970,6 @@ function createAfterImage(obj: GameObject, contentId: String, duration: Int, fil
 }
 
 
-function initialize() {
-    var hat: Vfx = null;
-    self.addEventListener(EntityEvent.STATE_CHANGE, function (event: EntityEvent) {
-        var toState = event.data.toState;
-        var fromState = event.data.fromState;
-        if (toState == CState.STAND) {
-            if (hat != null) {
-                hat.setAlpha(1);
-            } else {
-                hat = addChristmasHat();
-            }
-        } else if (toState != CState.STAND) {
-            if (hat != null) {
-                hat.setAlpha(0);
-            }
-        }
-    }, { persistent: true });
-    self.addEventListener(GameObjectEvent.LINK_FRAMES, handleLinkFrames, { persistent: true });
-
-}
-function addChristmasHat(): Vfx {
-    if (self.getCostumeIndex() == 0) {
-        var boxes = self.getCollisionBoxes(CollisionBoxType.CUSTOMC);
-        if (boxes != null && boxes.length >= 1) {
-            var actual_rotation = boxes[0].rotation;
-            if (self.isFacingLeft()) {
-                actual_rotation = Math.flipAngleOverXAxis(actual_rotation);
-            }
-            var hat: Vfx = match.createVfx(new VfxStats({ spriteContent: self.getGameObjectStat("spriteContent"), loop: true, animation: "hat", layer: VfxLayer.CHARACTERS_FRONT, x: boxes[0].x, y: boxes[0].y, rotation: actual_rotation }), self);
-            var charactersContainer: Container = stage.getCharactersContainer();
-            charactersContainer.addChild(hat);
-            return hat;
-        }
-    }
-}
-
 
 function defaultFinalSmash(player: Character) {
     player.toState(CState.TILT_UP, "stand");
@@ -1067,14 +1018,10 @@ function defaultFinalSmash(player: Character) {
             var attackSequence = [
                 // { animation: "jab1", x: -player.flipX(ecb.width), y: 0 },
                 { animation: "tilt_down", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "tilt_up", x: -player.flipX(ecb.width), y: 0 },
                 { animation: "tilt_forward", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "aerial_up", x: -player.flipX(ecb.width), y: ecb.height },
-                { animation: "aerial_back", x: player.flipX(ecb.width), y: 0 },
                 { animation: "aerial_neutral", x: 0, y: 0 },
                 { animation: "aerial_forward", x: - player.flipX(ecb.width), y: 0 },
                 { animation: "strong_down_attack", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "strong_up_attack", x: -player.flipX(ecb.width), y: ecb.height },
                 { animation: "strong_forward_attack", x: -player.flipX(ecb.width), y: 0 },
                 { animation: "", x: 0, y: 0 }
             ];
@@ -1397,7 +1344,7 @@ function createShield(player: Character, settings: {
         };
     } else {
         if (settings.hp == null) { settings.hp = 60; }
-        if (settings.damageFormula == null) { settings.damageFormula = function (damage: Int) { return damage * 0.7; }; }
+        if (settings.damageFormula == null) { settings.damageFormula = (function (damage: Int) { return damage * 0.7; }); }
         if (settings.regenRate == null) { settings.regenRate = 0.07; }
         if (settings.depleteRate == null) { settings.depleteRate = 0.28; }
         if (settings.resetValue == null) { settings.resetValue = 30; }
@@ -1423,17 +1370,33 @@ function createShield(player: Character, settings: {
 
     var shieldHeight = shield.getSprite().height;
     var yOffset = 0;
+    var xOffset = 0;
     var currentHP = settings.hp;
 
 
     var effectScale = 1;
+    var widthScale = 1;
+    var heightScale = 1;
     function updateScale() {
         var resizeStatuses = player.getStatusEffectByType(StatusEffectType.SIZE_MULTIPLIER);
         if (resizeStatuses != null) {
             effectScale = resizeStatuses.getProduct();
         }
-        var characterHeight = player.getSprite().height;
-        var characterWidth = player.getSprite().width;
+        var heightStatuses = player.getStatusEffectByType(StatusEffectType.HEIGHT_MULTIPLIER);
+        if (heightStatuses != null) {
+            heightScale = heightScale * heightStatuses.getProduct();
+        }
+
+        var widthStatuses = player.getStatusEffectByType(StatusEffectType.WIDTH_MULTIPLIER);
+        if (widthStatuses != null) {
+            widthScale = widthScale * widthStatuses.getProduct();
+        }
+
+        widthScale = widthScale * player.getScaleX();
+        heightScale = heightScale * player.getScaleY();
+        var ecb = player.getEcbCollisionBox();
+        var characterHeight = ecb.height * heightScale;
+        var characterWidth = ecb.width * widthScale;
         var characterSize = characterHeight > characterWidth ? characterHeight : characterWidth;
         var scale = effectScale * (characterSize * 1.3) / shieldHeight;
         shield.setScaleX((currentHP / settings.hp) * scale);
@@ -1464,7 +1427,7 @@ function createShield(player: Character, settings: {
 
 
     shield.addTimer(1, -1, function () {
-        shield.setX(player.getX());
+        shield.setX(xOffset + player.getX());
         shield.setY(yOffset + player.getY());
 
         if (player.inState(CState.SHIELD_IN) || player.inState(CState.SHIELD_LOOP) || player.inState(CState.SHIELD_HURT)) {
@@ -1623,7 +1586,7 @@ function getAirDodgeAngle(player: Character, speed: Int) {
         down = down || held.RIGHT_STICK_DOWN || pressed.RIGHT_STICK_DOWN;
     }
     var shield = createShield(self.getOwner(), null);
-1    var movingSpeed = speed;
+    var movingSpeed = speed;
     var angle = 0;
 
     if (left && up) {
@@ -1788,35 +1751,50 @@ function ultimateMode(player: Character): void {
         }
     }, { persistent: true });
 
-    function onParried(event: GameObjectEvent) {
-        var foe: Character = event.data.foe;
-        if (player.getType() == EntityType.CHARACTER && player.inState(CState.SHIELD_OUT) && player.getCurrentFrame() < PARRY_WINDOW) {
+
+    function onParriedReceiverEnd(defender: Character, attacker: GameObject, stats: HitboxStats) {
+        if (defender.getType() == EntityType.CHARACTER && defender.inState(CState.SHIELD_OUT) && defender.getCurrentFrame() < PARRY_WINDOW) {
             darkenScreen(15, 10);
-            player.setDamage(player.getDamage() - event.data.hitboxStats.damage);
-            player.setKnockback(0, 0);
-            player.setYVelocity(0);
-            player.setXVelocity(0);
-            player.resetMomentum();
-            player.toState(CState.PARRY_SUCCESS);
-            player.updateAnimationStats({ bodyStatus: BodyStatus.INVINCIBLE });
-            player.addTimer(5, 1, function () {
-                if (player.inState(CState.PARRY_SUCCESS) && player.hasBodyStatus(BodyStatus.INVINCIBLE)) {
-                    player.updateAnimationStats({ bodyStatus: BodyStatus.NONE });
+            defender.setDamage(defender.getDamage() - stats.damage);
+            defender.setKnockback(0, 0);
+            defender.setYVelocity(0);
+            defender.setXVelocity(0);
+            defender.resetMomentum();
+            defender.toState(CState.PARRY_SUCCESS);
+            defender.updateAnimationStats({ bodyStatus: BodyStatus.INVINCIBLE });
+            defender.addTimer(5, 1, function () {
+                if (defender.inState(CState.PARRY_SUCCESS) && defender.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+                    defender.updateAnimationStats({ bodyStatus: BodyStatus.NONE });
                 }
             }, { persistent: true });
             var sound: AudioClip = AudioClip.play(getContent("UltimateParry"), { volume: 0.8, });
-            player.addTimer(30, 1, function () {
+            defender.addTimer(30, 1, function () {
                 sound = null;
             }, { persistent: true });
 
-            player.forceStartHitstop(player.getHitstop() + 11);
-            player.addTimer(11, 1, function () {
-                player.endAnimation();
+            defender.forceStartHitstop(defender.getHitstop() + 11);
+            defender.addTimer(11, 1, function () {
+                defender.endAnimation();
             });
-            foe.forceStartHitstop(foe.getHitstop() + 14);
+            attacker.forceStartHitstop(attacker.getHitstop() + 14);
         }
     }
-    player.addEventListener(GameObjectEvent.HIT_RECEIVED, onParried, { persistent: true });
+
+    function onParriedProjectile(event: GameObjectEvent) {
+        var attacker: Character = event.data.foe;
+        var defender: GameObject = event.data.self;
+        onParriedReceiverEnd(defender, attacker, event.data.hitboxStats);
+    }
+
+    function playerParryListener(event: GameObjectEvent) {
+        var defender: GameObject = event.data.foe;
+        var attacker: GameObject = event.data.self;
+        onParriedReceiverEnd(defender, attacker, event.data.hitboxStats);
+
+    }
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, onParriedProjectile, { persistent: true });
+    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, playerParryListener, { persistent: true });
+
 
     player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
         event.data.hitboxStats.shieldstunMultiplier = 3;
@@ -1910,8 +1888,6 @@ function enableUltimateMode() {
         Engine.log(player.exports);
         return true;
     }, []);
-
-
 }
 function smash64Mode(player: Character) {
     player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.5);
