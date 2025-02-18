@@ -12,6 +12,7 @@ var actionable_animations: Array<String> = [
 ];
 var enabled = self.makeBool(false);
 var prefix = "specialModeType_";
+var STATUS_TAG = "_specialModeStatusTag";
 var globalMode = "none";
 var timeLeft = self.makeInt(60 * 60 * 5);
 var globalController: CustomGameObject = null;
@@ -20,6 +21,11 @@ var MISSION_FAIL = -1;
 var MISSION_SUCCESS = 1;
 var MISSION_PENDING = 0;
 var FINAL_SMASH_CHARGE = 500;
+var PARRY_WINDOW = 10;
+
+var ULTIMATE_MODE = 0;
+var MVS_MODE = 1;
+var SMASH64_MODE = 2;
 var modes = [
     "none",
     "mega",
@@ -819,8 +825,15 @@ function playWallJump(player: Character) {
 //     }
 // }
 
-function mvsMode(player: Character) {
-    player.updateCharacterStats({ airdashLimit: 2 });
+function superPreland(player: Character) {
+    player.setAirdashCount(player.getGameObjectStat("airdashLimit"));
+    player.preLand(false);
+    if (player.inState(CState.FALL_SPECIAL) || player.getAnimation() == "fall_special") {
+        player.toState(CState.FALL);
+    }
+}
+
+function enableWallJumps(player: Character) {
     player.addTimer(1, -1, function () {
         var held = player.getHeldControls();
         var ecb = player.getEcbCollisionBox();
@@ -840,12 +853,89 @@ function mvsMode(player: Character) {
         }
     }, { persistent: true });
 
-    player.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function () {
-        player.setAirdashCount(player.getGameObjectStat("airdashLimit"));
-        player.preLand(false);
-        if (player.inState(CState.FALL_SPECIAL) || player.getAnimation() == "fall_special") {
-            player.toState(CState.FALL);
+}
+
+function mvsModeOnStateChange(e) {
+
+}
+
+function performAirdodge(player: Character, version: Int) {
+    player.resetMomentum();
+    player.setXVelocity(0);
+    player.setYVelocity(0);
+    if (player.isOnFloor()) {
+        player.setYVelocity(-1);
+    }
+
+    var vector = getAirDodgeAngle(player, Math.min(10, player.getCharacterStat("airdashSpeedCap")));
+    var movingSpeed = vector.movingSpeed;
+    var angle = vector.angle;
+
+    var bdpgoinFast = "cc_3380358897::bdpgoinfast.bdpgoinfast";
+    var animation = "spot_dodge";
+    if (player.getGameObjectStat("spriteContent") == bdpgoinFast) {
+        animation = "spot_dodge";
+        if (movingSpeed > 1) {
+            animation = "special_down_jump";
         }
+    }
+
+    player.toState(CState.EMOTE, animation);
+    player.updateAnimationStats({ endType: AnimationEndType.NONE, allowMovement: false, });
+    player.updateAnimationStats({ bodyStatus: BodyStatus.INTANGIBLE });
+    player.toggleGravity(false);
+    player.setXVelocity(Math.round(Math.calculateXVelocity(movingSpeed, angle)));
+    player.setYVelocity(Math.round(-Math.calculateYVelocity(movingSpeed, angle)));
+
+    var period = (movingSpeed == 1) ? 45 : 18;
+    player.addTimer(period, 1, function () {
+        player.toggleGravity(true);
+        player.resetMomentum();
+        var jumps = [];
+        Engine.forEach(player.getCharacterStat("doubleJumpSpeeds"), function (num: Float, idx: Int) {
+            jumps.push(num);
+            return true;
+        }, []);
+
+        var leftDodge = false;
+        function afterDodge() {
+            if (!leftDodge) {
+                player.removeEventListener(GameObjectEvent.LAND, afterDodge);
+                player.removeEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge);
+                leftDodge = true;
+                switch (version) {
+                    case ULTIMATE_MODE:
+                        enableActions(player)(null);
+                }
+                if (jumps.length > 0) {
+                    player.updateCharacterStats({ doubleJumpSpeeds: jumps });
+                }
+
+            }
+        }
+        if (version == ULTIMATE_MODE) {
+            var gravity = player.getGameObjectStat("gravity");
+            var distance = 215 + (Math.calculateYVelocity(movingSpeed, angle) * period);
+            var dodgeTime = Math.sqrt(((2 * distance) / gravity));
+            player.updateCharacterStats({ doubleJumpSpeeds: [] });
+            player.addTimer(dodgeTime, 1, afterDodge, { persistent: true });
+        }
+        player.addEventListener(GameObjectEvent.LAND, afterDodge, { persistent: true });
+        player.addEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge, { persistent: true });
+        player.endAnimation();
+    });
+
+    return vector;
+
+}
+
+
+function mvsMode(player: Character) {
+    player.updateCharacterStats({ airdashLimit: 2 });
+
+    player.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function () {
+        superPreland
+
 
     }, { persistent: true });
     player.addEventListener(EntityEvent.STATE_CHANGE, function (e: EntityEvent) {
@@ -863,59 +953,8 @@ function mvsMode(player: Character) {
             case CState.SHIELD_IN:
                 directionToAttack(player);
             case CState.AIRDASH_INITIAL:
-                player.resetMomentum();
-                player.setXVelocity(0);
-                player.setYVelocity(0);
-                if (player.isOnFloor()) {
-                    player.setYVelocity(-1);
-                }
+                performAirdodge(player, MVS_MODE);
 
-                var vector = getAirDodgeAngle(player, Math.min(10, player.getCharacterStat("airdashSpeedCap")));
-                var movingSpeed = vector.movingSpeed;
-                var angle = vector.angle;
-
-                var bdpgoinFast = "cc_3380358897::bdpgoinfast.bdpgoinfast";
-                var animation = "spot_dodge";
-                if (player.getGameObjectStat("spriteContent") == bdpgoinFast) {
-                    animation = "spot_dodge";
-                    if (movingSpeed > 1) {
-                        animation = "special_down_jump";
-                    }
-                }
-
-
-
-
-                player.toState(CState.EMOTE, animation);
-                player.updateAnimationStats({ endType: AnimationEndType.NONE, allowMovement: false, });
-                var aerialFriction = player.getGameObjectStat("aerialFriction");
-                player.updateAnimationStats({ bodyStatus: BodyStatus.INTANGIBLE });
-                player.toggleGravity(false);
-                player.setXVelocity(Math.round(Math.calculateXVelocity(movingSpeed, angle)));
-                player.setYVelocity(Math.round(-Math.calculateYVelocity(movingSpeed, angle)));
-
-
-
-
-                var period = (movingSpeed == 1) ? 45 : 18;
-                player.addTimer(period, 1, function () {
-                    player.toggleGravity(true);
-                    player.resetMomentum();
-
-                    var leftDodge = false;
-
-                    player.updateCharacterStats({ doubleJumpSpeeds: [] });
-                    function afterDodge() {
-                        if (!leftDodge) {
-                            player.removeEventListener(GameObjectEvent.LAND, afterDodge);
-                            player.removeEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge);
-                            leftDodge = true;
-                        }
-                    }
-                    player.endAnimation();
-                    player.addEventListener(GameObjectEvent.LAND, afterDodge, { persistent: true });
-                    player.addEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge, { persistent: true });
-                });
 
         }
 
@@ -983,8 +1022,6 @@ function directionToAttack(player: Character) {
 }
 
 function disableAllAttacks(player: Character) {
-    //obj.getStatusEffectByType(StatusEffectType.)
-    var tag = "ultimateAirDodge";
     var disabledActions = [
         CharacterActions.AERIAL_NEUTRAL,
         CharacterActions.AERIAL_FORWARD,
@@ -1005,13 +1042,13 @@ function disableAllAttacks(player: Character) {
     ];
 
     Engine.forEach(disabledActions, function (action: Int, _idx: Int) {
-        player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: tag });
+        player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: STATUS_TAG });
         return true;
     }, []);
 }
-function enableAirActions(player: Character, tag: String) {
+function enableAirActions(player: Character) {
     return function (event: GameObjectEvent) {
-        var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
+        var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, STATUS_TAG);
         Engine.forEach(disabledStatus, function (effect: any, _idx: Int) {
             player.removeStatusEffect(StatusEffectType.DISABLE_ACTION, effect.id);
         }, []);
@@ -1136,9 +1173,9 @@ function gameEndingStock(player: Character) {
     }
 }
 
-function enableActions(player: Character, tag: String) {
+function enableActions(player: Character) {
     return function (event: GameObjectEvent) {
-        var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, tag);
+        var disabledStatus = player.findStatusEffectObjectsByTag(StatusEffectType.DISABLE_ACTION, STATUS_TAG);
         Engine.forEach(disabledStatus, function (effect: any, _idx: Int) {
             player.removeStatusEffect(StatusEffectType.DISABLE_ACTION, effect.id);
             return true;
@@ -1147,7 +1184,7 @@ function enableActions(player: Character, tag: String) {
 }
 
 
-function disableActions(player: Character, tag: String) {
+function disableActions(player: Character) {
     //obj.getStatusEffectByType(StatusEffectType.)
     var disabledActions = [
         CharacterActions.AERIAL_NEUTRAL,
@@ -1169,7 +1206,7 @@ function disableActions(player: Character, tag: String) {
     ];
 
     Engine.forEach(disabledActions, function (action: Int, _idx: Int) {
-        player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: tag });
+        player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: STATUS_TAG });
         return true;
     }, []);
 }
@@ -1540,14 +1577,134 @@ function clearSprites(textSprites: Array<Sprite>) {
 
 }
 
-function createShield(player: Character, settings: {
-    hp: Float,
-    damageFormula: Function,
-    regenRate: Float,
-    depleteRate: Float,
-    timeTodrop: Int,
-    resetValue: Float
-}) {
+function enterDizzy(player: Character) {
+    player.takeHit(new HitboxStats({ damage: 0, baseKnockback: 80, hitstun: 60 * 1, angle: 90, reflectable: false, absorbable: false, shieldable: false, directionalInfluence: false, tumbleType: TumbleType.ALWAYS }));
+
+    var breakStatus = player.applyGlobalBodyStatus(BodyStatus.INVINCIBLE, 60);
+    player.updateAnimationStats({ landType: LandType.NONE });
+    var stunVfx = null;
+
+    function leaveShieldStun() {
+        if (stunVfx != null) {
+            stunVfx.kill();
+            stunVfx = null;
+            leftShieldStun = true;
+            f(settings.resetValue);
+
+        }
+    };
+
+
+    player.addEventListener(EntityEvent.COLLIDE_FLOOR, function onCollideFloor(event: EntityEvent) {
+        player.removeEventListener(EntityEvent.COLLIDE_FLOOR, onCollideFloor);
+
+        breakStatus.finish();
+        stunVfx = match.createVfx(new VfxStats({
+            spriteContent: getContent("roundShield"), resizeWith: true, animation: "stunVfx", loop: true, y: -player.getEcbCollisionBox().height
+        }, player));
+
+        stunVfx.attachTo(player);
+        player.setState(CState.EMOTE);
+        player.playAnimation("stand");
+
+        var grabFn = null;
+        var hitFn = null;
+        function onHit(event: GameObjectEvent) {
+            hitFn = onHit;
+            if (event.data.hitboxStats.flinch) {
+                player.removeEventListener(GameObjectEvent.HIT_RECEIVED, grabFn);
+                player.removeEventListener(EntityEvent.STATE_CHANGE, hitFn);
+
+                leaveShieldStun();
+            }
+        }
+
+        function onGrabbed(event: EntityEvent) {
+            grabFn = onGrabbed;
+            if (event.data.toState == CState.HELD) {
+                player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitFn);
+                player.removeEventListener(EntityEvent.STATE_CHANGE, grabFn);
+
+                leaveShieldStun();
+            }
+        }
+
+        player.addEventListener(GameObjectEvent.HIT_RECEIVED, onHit, { persistent: true });
+        player.addEventListener(EntityEvent.STATE_CHANGE, onGrabbed, { persistent: true });
+    }, { persistent: false });
+
+    player.addTimer(60 * 5, 1, function () {
+
+        leaveShieldStun();
+        if (player.isOnFloor()) { player.toState(CState.STAND); } else { player.toState(CState.FALL); }
+    }, { persistent: true });
+}
+
+function getScales(player: Character) {
+    var widthScale = player.getScaleX();
+    var heightScale = player.getScaleY();
+    var effectScale = 1;
+    var resizeStatuses = player.getStatusEffectByType(StatusEffectType.SIZE_MULTIPLIER);
+    if (resizeStatuses != null) {
+        effectScale = resizeStatuses.getProduct();
+    }
+    var heightStatuses = player.getStatusEffectByType(StatusEffectType.HEIGHT_MULTIPLIER);
+    if (heightStatuses != null) {
+        heightScale = heightScale * heightStatuses.getProduct();
+    }
+
+    var widthStatuses = player.getStatusEffectByType(StatusEffectType.WIDTH_MULTIPLIER);
+    if (widthStatuses != null) {
+        widthScale = widthScale * widthStatuses.getProduct();
+    }
+    return {
+        width: widthScale * effectScale,
+        height: heightScale * effectScale,
+        base: effectScale
+    };
+}
+
+function onParriedReceiverEnd(defender: Character, attacker: GameObject, stats: HitboxStats) {
+    if (defender.getType() == EntityType.CHARACTER && defender.inState(CState.SHIELD_OUT) && defender.getCurrentFrame() < PARRY_WINDOW) {
+        darkenScreen(15, 10);
+        defender.setDamage(defender.getDamage() - stats.damage);
+        defender.setKnockback(0, 0);
+        defender.setYVelocity(0);
+        defender.setXVelocity(0);
+        defender.resetMomentum();
+        defender.toState(CState.PARRY_SUCCESS);
+        defender.updateAnimationStats({ bodyStatus: BodyStatus.INVINCIBLE });
+        defender.addTimer(5, 1, function () {
+            if (defender.inState(CState.PARRY_SUCCESS) && defender.hasBodyStatus(BodyStatus.INVINCIBLE)) {
+                defender.updateAnimationStats({ bodyStatus: BodyStatus.NONE });
+            }
+        }, { persistent: true });
+        AudioClip.play(getContent("UltimateParry"), { volume: 0.8, });
+        defender.addTimer(30, 1, function () {
+            sound = null;
+        }, { persistent: true });
+
+        defender.forceStartHitstop(defender.getHitstop() + 11);
+        defender.addTimer(11, 1, function () {
+            defender.endAnimation();
+        });
+        attacker.forceStartHitstop(attacker.getHitstop() + 14);
+    }
+}
+
+function onParriedProjectile(event: GameObjectEvent) {
+    var attacker: Character = event.data.foe;
+    var defender: GameObject = event.data.self;
+    onParriedReceiverEnd(defender, attacker, event.data.hitboxStats);
+}
+
+function playerParryListener(event: GameObjectEvent) {
+    var defender: GameObject = event.data.foe;
+    var attacker: GameObject = event.data.self;
+    onParriedReceiverEnd(defender, attacker, event.data.hitboxStats);
+}
+
+function createShield(player: Character, version: Int) {
     player.updateCharacterStats({
         shieldBackXOffset: 10000000,
         shieldBackYOffset: 10000000,
@@ -1556,26 +1713,46 @@ function createShield(player: Character, settings: {
         shieldCrossupThreshold: Math.POSITIVE_INFINITY
     });
 
-    if (settings == null) {
-        settings = {
-            hp: 60,
-            damageFormula: function (damage: Int) { return damage * 0.7; },
-            regenRate: 0.07,
-            depleteRate: 0.28,
-            timeTodrop: 8,
-            resetValue: 30
-        };
-    } else {
-        if (settings.hp == null) { settings.hp = 60; }
-        if (settings.damageFormula == null) { settings.damageFormula = (function (damage: Int) { return damage * 0.7; }); }
-        if (settings.regenRate == null) { settings.regenRate = 0.07; }
-        if (settings.depleteRate == null) { settings.depleteRate = 0.28; }
-        if (settings.resetValue == null) { settings.resetValue = 30; }
-        if (settings.timeTodrop == null) { settings.damageFormula = 8; }
+    var events: Array<Array<Any>> = [];
+    var timers: Array<Int> = [];
+    var smash64Preset = {
+        hp: 55,
+        damageFormula: function (damage: Float) { return damage; },
+        depleteRate: 0.0625,
+        regenRate: 0.1,
+        resetValue: 30,
+        timeTodrop: 3,
+    };
+    var ultimatePreset = {
+
+        hp: 50,
+        damageFormula: function (damage: Float) {
+            var shieldDamage = Math.ceil(damage / 3);
+            return shieldDamage;
+        },
+        depleteRate: 0.15,
+        regenRate: 0.08,
+        resetValue: 37.5,
+        timeTodrop: 3,
+    };
+
+
+    var settings: {
+        hp: number;
+        damageFormula: Function;
+        depleteRate: number;
+        regenRate: number;
+        resetValue: number;
+        timeTodrop: number;
+    } = {};
+    switch (version) {
+        case SMASH64_MODE:
+            settings = smash64Preset;
+        case ULTIMATE_MODE:
+            settings = ultimatePreset;
+        default:
+            settings = ultimatePreset;
     }
-
-
-
 
     var shader: RgbaColorShader = createColorShader(player.getPortColor());
     var dropTime = settings.timeTodrop;
@@ -1597,26 +1774,11 @@ function createShield(player: Character, settings: {
     var currentHP = settings.hp;
 
 
-    var effectScale = 1;
-    var widthScale = 1;
-    var heightScale = 1;
     function updateScale() {
-        var resizeStatuses = player.getStatusEffectByType(StatusEffectType.SIZE_MULTIPLIER);
-        if (resizeStatuses != null) {
-            effectScale = resizeStatuses.getProduct();
-        }
-        var heightStatuses = player.getStatusEffectByType(StatusEffectType.HEIGHT_MULTIPLIER);
-        if (heightStatuses != null) {
-            heightScale = heightScale * heightStatuses.getProduct();
-        }
-
-        var widthStatuses = player.getStatusEffectByType(StatusEffectType.WIDTH_MULTIPLIER);
-        if (widthStatuses != null) {
-            widthScale = widthScale * widthStatuses.getProduct();
-        }
-
-        widthScale = widthScale * player.getScaleX();
-        heightScale = heightScale * player.getScaleY();
+        var scale = getScales(player);
+        var widthScale = scale.width;
+        var heightScale = scale.height;
+        var effectScale = scale.base;
         var ecb = player.getEcbCollisionBox();
         var characterHeight = ecb.height * heightScale;
         var characterWidth = ecb.width * widthScale;
@@ -1637,10 +1799,7 @@ function createShield(player: Character, settings: {
         if (currentHP - amount > 0) { currentHP -= amount; } else { currentHP = 0; }
         updateScale();
     }
-    function setValue(amount: Float) {
-        if (amount > settings.hp) { currentHP = settings.hp; } else { currentHP = amount; }
-        updateScale();
-    }
+
     function hide() { shield.setAlpha(0); }
     function show() { shield.setAlpha(1); }
     function visible() { return shield.getAlpha() > 0; }
@@ -1649,7 +1808,7 @@ function createShield(player: Character, settings: {
     function getTimeToDrop() { return dropTime; }
 
 
-    shield.addTimer(1, -1, function () {
+    var updateTimer = shield.addTimer(1, -1, function () {
         shield.setX(xOffset + player.getX());
         shield.setY(yOffset + player.getY());
 
@@ -1681,73 +1840,15 @@ function createShield(player: Character, settings: {
         }
 
         if (getLevel() == 0) {
-            player.takeHit(new HitboxStats({ damage: 0, baseKnockback: 80, hitstun: 60 * 1, angle: 90, reflectable: false, absorbable: false, shieldable: false, directionalInfluence: false, tumbleType: TumbleType.ALWAYS }));
-
-            var breakStatus = player.applyGlobalBodyStatus(BodyStatus.INVINCIBLE, 60);
-            player.updateAnimationStats({ landType: LandType.NONE });
-            var stunVfx = null;
-
-            function leaveShieldStun() {
-                if (stunVfx != null) {
-                    stunVfx.kill();
-                    stunVfx = null;
-                    leftShieldStun = true;
-                    setValue(settings.resetValue);
-
-                }
-            };
-
-
-            player.addEventListener(EntityEvent.COLLIDE_FLOOR, function onCollideFloor(event: EntityEvent) {
-                player.removeEventListener(EntityEvent.COLLIDE_FLOOR, onCollideFloor);
-
-                breakStatus.finish();
-                stunVfx = match.createVfx(new VfxStats({
-                    spriteContent: getContent("roundShield"), resizeWith: true, scaleY: effectScale, scaleX: effectScale, animation: "stunVfx", loop: true, y: effectScale * -player.getEcbCollisionBox().height
-                }, player));
-
-                stunVfx.attachTo(player);
-                player.setState(CState.EMOTE);
-                player.playAnimation("stand");
-
-                var grabFn = null;
-                var hitFn = null;
-                function onHit(event: GameObjectEvent) {
-                    hitFn = onHit;
-                    if (event.data.hitboxStats.flinch) {
-                        player.removeEventListener(GameObjectEvent.HIT_RECEIVED, grabFn);
-                        player.removeEventListener(EntityEvent.STATE_CHANGE, hitFn);
-
-                        leaveShieldStun();
-                    }
-                }
-
-                function onGrabbed(event: EntityEvent) {
-                    grabFn = onGrabbed;
-                    if (event.data.toState == CState.HELD) {
-                        player.removeEventListener(GameObjectEvent.HIT_RECEIVED, hitFn);
-                        player.removeEventListener(EntityEvent.STATE_CHANGE, grabFn);
-
-                        leaveShieldStun();
-                    }
-                }
-
-                player.addEventListener(GameObjectEvent.HIT_RECEIVED, onHit, { persistent: true });
-                player.addEventListener(EntityEvent.STATE_CHANGE, onGrabbed, { persistent: true });
-            }, { persistent: false });
-
-            player.addTimer(60 * 5, 1, function () {
-
-                leaveShieldStun();
-                if (player.isOnFloor()) { player.toState(CState.STAND); } else { player.toState(CState.FALL); }
-            }, { persistent: true });
-
+            enterDizzy(player);
         }
     }, { persistent: true });
 
+    timers.push(updateTimer);
 
+    var parryStatus: BodyStatusTimer = null;
 
-    player.addEventListener(EntityEvent.STATE_CHANGE, function (event: EntityEvent) {
+    function onStateChange(event: EntityEvent) {
         var toState = event.data.toState;
         var fromState = event.data.fromState;
         var fromShield = (fromState == CState.SHIELD_OUT
@@ -1765,10 +1866,22 @@ function createShield(player: Character, settings: {
             forceShield = true;
         }
 
+        if (version == ULTIMATE_MODE) {
+            if (fromState == CState.SHIELD_OUT && parryStatus != null) { parryStatus.finish(); }
 
-    }, { persistent: true });
+            if (getTimeToDrop() == 0 && toState == CState.SHIELD_OUT) {
+                if (parryStatus == null) {
+                    parryStatus = player.applyGlobalBodyStatus(BodyStatus.INVINCIBLE_GRABBABLE, PARRY_WINDOW);
+                } else {
+                    parryStatus.reset();
+                }
+            }
 
-    player.addEventListener(GameObjectEvent.SHIELD_HIT_RECEIVED, function (event: GameObjectEvent) {
+        }
+
+    }
+
+    function onShieldHit(event: GameObjectEvent) {
         var stats = event.data.hitboxStats;
         if (stats.flinch && stats.damage > 0) {
             shrink(settings.damageFormula(stats.damage));
@@ -1779,19 +1892,34 @@ function createShield(player: Character, settings: {
         else if (event.data.foe.getX() < player.getX() && player.isFacingRight()) {
             player.setXKnockback(-player.getXKnockback());
         }
-    }, { persistent: true });
-
-    return {
-        grow: grow,
-        shrink: shrink,
-        setValue: setValue,
-        hide: hide,
-        show: show,
-        visible: visible,
-        getLevel: getLevel,
-        timeToDrop: getTimeToDrop
     }
 
+
+    events.push([EntityEvent.STATE_CHANGE, onStateChange]);
+    events.push([GameObjectEvent.SHIELD_HIT_RECEIVED, onShieldHit]);
+
+    player.addEventListener(EntityEvent.STATE_CHANGE, onStateChange, { persistent: true });
+    player.addEventListener(GameObjectEvent.SHIELD_HIT_RECEIVED, onShieldHit, { persistent: true });
+
+    if (version == ULTIMATE_MODE) {
+        events.push([GameObjectEvent.HIT_RECEIVED, onParriedProjectile]);
+        events.push([GameObjectEvent.HITBOX_CONNECTED, playerParryListener]);
+        player.addEventListener(GameObjectEvent.HIT_RECEIVED, onParriedProjectile, { persistent: true });
+        player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, playerParryListener, { persistent: true });
+    }
+    function dispose() {
+        for (event in events) {
+            player.removeEventListener(event[0], event[1]);
+        }
+
+        for (id in timers) {
+            player.removeTimer(id);
+        }
+    }
+
+    return {
+        dispose: dispose
+    }
 }
 
 function uniAssault(player: Character) {
@@ -1911,53 +2039,35 @@ function getAirDodgeAngle(player: Character, speed: Int) {
 
 }
 
+
+
+function ultimateModeOnStateChange(e: EntityEvent) {
+    var toState = event.data.toState;
+    var fromState = event.data.fromState;
+    switch (toState) {
+        case CState.AIRDASH_INITIAL:
+            performAirdodge(player, ULTIMATE_MODE);
+        case CState.PARRY_IN:
+            player.toState(CState.SHIELD_HURT, "shield_loop");
+    }
+}
+
+
+
 function ultimateMode(player: Character): void {
-    var tag = "ultimateAirDodge";
-    player.addEventListener(GameObjectEvent.LAND, enableAirActions(player, tag), { persistent: true });
+    player.addEventListener(GameObjectEvent.LAND, enableAirActions(player), { persistent: true });
 
     // Setup Shi
     // player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
     player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
 
-    var shield = createShield(player, {
-        hp: 50,
-        damageFormula: function (damage: Float) {
-            var shieldDamage = Math.ceil(damage / 3);
-            return shieldDamage;
-        },
-        depleteRate: 0.15,
-        regenRate: 0.08,
-        resetValue: 37.5,
-        timeTodrop: 3,
-    });
+    var shield = createShield(player, ULTIMATE_MODE);
 
-    player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
-        finishZoom(event);
-    }, { persistent: true });
+    player.addEventListener(EntityEvent.STATE_CHANGE, ultimateModeOnStateChange, { persistent: true });
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, finishZoom, { persistent: true });
 
 
-    var dodgeRollSpeed = player.getCharacterStat("dodgeRollSpeed");
-    // var jumps = player.getDoubleJumpCount();
 
-    var parryStatus: BodyStatusTimer = null;
-    var PARRY_WINDOW = 10;
-
-    player.addEventListener(EntityEvent.STATE_CHANGE, function (event: EntityEvent) {
-        var toState = event.data.toState;
-        var fromState = event.data.fromState;
-
-        if (toState == CState.PARRY_IN) { player.toState(CState.SHIELD_HURT, "shield_loop"); }
-
-        if (fromState == CState.SHIELD_OUT && parryStatus != null) { parryStatus.finish(); }
-
-        if (shield.timeToDrop() == 0 && toState == CState.SHIELD_OUT) {
-            if (parryStatus == null) {
-                parryStatus = player.applyGlobalBodyStatus(BodyStatus.INVINCIBLE_GRABBABLE, PARRY_WINDOW);
-            } else {
-                parryStatus.reset();
-            }
-        }
-    }, { persistent: true });
 
     player.addTimer(1, -1, function () {
         var port = player.getPlayerConfig().port;
@@ -1971,127 +2081,6 @@ function ultimateMode(player: Character): void {
             performFinalSmash(player);
         }
     }, { persistent: true });
-
-    player.addEventListener(EntityEvent.STATE_CHANGE, function (event: EntityEvent) {
-        var toState = event.data.toState;
-        var fromState = event.data.fromState;
-        if (toState == CState.AIRDASH_INITIAL) {
-            player.resetMomentum();
-            player.setXVelocity(0);
-            player.setYVelocity(0);
-            if (player.isOnFloor()) {
-                player.setYVelocity(-1);
-            }
-
-
-            var vector = getAirDodgeAngle(player, 8);
-            var movingSpeed = vector.movingSpeed;
-            var angle = vector.angle;
-
-            var bdpgoinFast = "cc_3380358897::bdpgoinfast.bdpgoinfast";
-            var animation = "spot_dodge";
-            if (player.getGameObjectStat("spriteContent") == bdpgoinFast) {
-                animation = "spot_dodge";
-                if (movingSpeed > 1) {
-                    animation = "special_down_jump";
-                }
-            }
-
-
-
-
-            player.toState(CState.EMOTE, animation);
-            player.updateAnimationStats({ endType: AnimationEndType.NONE, allowMovement: false, });
-            var aerialFriction = player.getGameObjectStat("aerialFriction");
-            player.updateAnimationStats({ gravityMultiplier: 0, bodyStatus: BodyStatus.INTANGIBLE });
-            player.updateGameObjectStats({ aerialFriction: 0 });
-            player.setXVelocity(Math.round(Math.calculateXVelocity(movingSpeed, angle)));
-            player.setYVelocity(Math.round(-Math.calculateYVelocity(movingSpeed, angle)));
-
-
-
-
-            var period = (movingSpeed == 1) ? 45 : 18;
-            player.addTimer(period, 1, function () {
-                player.updateAnimationStats({ gravityMultiplier: 1 });
-                player.updateGameObjectStats({ aerialFriction: aerialFriction });
-                player.resetMomentum();
-                var gravity = player.getGameObjectStat("gravity");
-                var distance = 215 + (Math.calculateYVelocity(movingSpeed, angle) * period);
-                var dodgeTime = Math.sqrt(((2 * distance) / gravity));
-
-                var leftDodge = false;
-                disableActions(player, tag);
-                var jumps = [];
-                Engine.forEach(player.getCharacterStat("doubleJumpSpeeds"), function (num: Float, idx: Int) {
-                    jumps.push(num);
-                    return true;
-                }, []);
-                player.updateCharacterStats({ doubleJumpSpeeds: [] });
-                function afterDodge() {
-                    if (!leftDodge) {
-                        player.removeEventListener(GameObjectEvent.LAND, afterDodge);
-                        player.removeEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge);
-                        enableActions(player, tag)(null);
-                        if (jumps.length > 0) {
-                            player.updateCharacterStats({ doubleJumpSpeeds: jumps });
-                        }
-                        Engine.log(jumps);
-                        leftDodge = true;
-                    }
-                }
-                player.addTimer(dodgeTime, 1, afterDodge, { persistent: true });
-                player.endAnimation();
-                player.addEventListener(GameObjectEvent.LAND, afterDodge, { persistent: true });
-                player.addEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge, { persistent: true });
-            });
-        }
-    }, { persistent: true });
-
-
-    function onParriedReceiverEnd(defender: Character, attacker: GameObject, stats: HitboxStats) {
-        if (defender.getType() == EntityType.CHARACTER && defender.inState(CState.SHIELD_OUT) && defender.getCurrentFrame() < PARRY_WINDOW) {
-            darkenScreen(15, 10);
-            defender.setDamage(defender.getDamage() - stats.damage);
-            defender.setKnockback(0, 0);
-            defender.setYVelocity(0);
-            defender.setXVelocity(0);
-            defender.resetMomentum();
-            defender.toState(CState.PARRY_SUCCESS);
-            defender.updateAnimationStats({ bodyStatus: BodyStatus.INVINCIBLE });
-            defender.addTimer(5, 1, function () {
-                if (defender.inState(CState.PARRY_SUCCESS) && defender.hasBodyStatus(BodyStatus.INVINCIBLE)) {
-                    defender.updateAnimationStats({ bodyStatus: BodyStatus.NONE });
-                }
-            }, { persistent: true });
-            var sound: AudioClip = AudioClip.play(getContent("UltimateParry"), { volume: 0.8, });
-            defender.addTimer(30, 1, function () {
-                sound = null;
-            }, { persistent: true });
-
-            defender.forceStartHitstop(defender.getHitstop() + 11);
-            defender.addTimer(11, 1, function () {
-                defender.endAnimation();
-            });
-            attacker.forceStartHitstop(attacker.getHitstop() + 14);
-        }
-    }
-
-    function onParriedProjectile(event: GameObjectEvent) {
-        var attacker: Character = event.data.foe;
-        var defender: GameObject = event.data.self;
-        onParriedReceiverEnd(defender, attacker, event.data.hitboxStats);
-    }
-
-    function playerParryListener(event: GameObjectEvent) {
-        var defender: GameObject = event.data.foe;
-        var attacker: GameObject = event.data.self;
-        onParriedReceiverEnd(defender, attacker, event.data.hitboxStats);
-
-    }
-    player.addEventListener(GameObjectEvent.HIT_RECEIVED, onParriedProjectile, { persistent: true });
-    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, playerParryListener, { persistent: true });
-
 
     player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
         event.data.hitboxStats.shieldstunMultiplier = 3;
@@ -2182,7 +2171,6 @@ function enableUltimateMode() {
         globalController.exports.data.meters[port] = createFinalSmashMeter(player);
         activateFinalSmashMeter(player);
         ultimateMode(player);
-        Engine.log(player.exports);
         return true;
     }, []);
 }
@@ -2193,14 +2181,7 @@ function smash64Mode(player: Character) {
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_UP);
     player.updateCharacterStats({ airdashLimit: 0 });
 
-    var shield = createShield(player, {
-        hp: 55,
-        damageFormula: 1,
-        depleteRate: 0.0625,
-        regenRate: 0.1,
-        resetValue: 30,
-        timeTodrop: 3,
-    });
+    var shield = createShield(player, SMASH64_MODE);
 
 
     player.addTimer(1, -1, function () {
@@ -2990,13 +2971,12 @@ function mobilityBuff(player: Character, duration: Int) {
     innerGlow.color = 0xFFFFFF;
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
-    var tag = "speedBuff";
-    var jump = player.addStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, 1.2, { tag: tag });
-    var doubleJump = player.addStatusEffect(StatusEffectType.DOUBLE_JUMP_SPEED_MULTIPLIER, 1.2, { tag: tag });
-    var fastFall = player.addStatusEffect(StatusEffectType.FAST_FALL_SPEED_MULTIPLIER, 1.2, { tag: tag });
-    var runSpeed = player.addStatusEffect(StatusEffectType.RUN_SPEED_ACCELERATION_MULTIPLIER, 1.5, { tag: tag });
-    var runSpeedCap = player.addStatusEffect(StatusEffectType.RUN_SPEED_CAP_MULTIPLIER, 1.5, { tag: tag });
-    var dash = player.addStatusEffect(StatusEffectType.DASH_SPEED_MULTIPLIER, 1.5, { tag: tag });
+    var jump = player.addStatusEffect(StatusEffectType.JUMP_SPEED_MULTIPLIER, 1.2, { tag: STATUS_TAG });
+    var doubleJump = player.addStatusEffect(StatusEffectType.DOUBLE_JUMP_SPEED_MULTIPLIER, 1.2, { tag: STATUS_TAG });
+    var fastFall = player.addStatusEffect(StatusEffectType.FAST_FALL_SPEED_MULTIPLIER, 1.2, { tag: STATUS_TAG });
+    var runSpeed = player.addStatusEffect(StatusEffectType.RUN_SPEED_ACCELERATION_MULTIPLIER, 1.5, { tag: STATUS_TAG });
+    var runSpeedCap = player.addStatusEffect(StatusEffectType.RUN_SPEED_CAP_MULTIPLIER, 1.5, { tag: STATUS_TAG });
+    var dash = player.addStatusEffect(StatusEffectType.DASH_SPEED_MULTIPLIER, 1.5, { tag: STATUS_TAG });
 
     var removeBuff = function () {
         player.removeStatusEffect(StatusEffectType.RUN_SPEED_ACCELERATION_MULTIPLIER, runSpeed.id);
@@ -3081,10 +3061,9 @@ function attackBuff(player: Character, duration: Int) {
     innerGlow.color = 0xFFFFFF;
     player.addFilter(innerGlow);
     player.addFilter(outerGlow);
-    var tag = "damageBuff";
-    var damage = player.addStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, 1.1, { tag: tag });
-    var hitstun = player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.1, { tag: tag });
-    var knockback = player.addStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, 1.1, { tag: tag });
+    var damage = player.addStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, 1.1, { tag: STATUS_TAG });
+    var hitstun = player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.1, { tag: STATUS_TAG });
+    var knockback = player.addStatusEffect(StatusEffectType.ATTACK_KNOCKBACK_MULTIPLIER, 1.1, { tag: STATUS_TAG });
 
     var disableBuff = function () {
         player.removeStatusEffect(StatusEffectType.HITBOX_DAMAGE_MULTIPLIER, damage.id);
@@ -3482,261 +3461,5 @@ function enableMissionMode() {
             runMission(chosenMission);
         }
     }, { persistent: true });
-
-}
-
-
-// Second set for cinematic finish
-var prevCenterSprites: Array<{ vfx: Vfx, filter: HsbcColorFilter }> = [];
-
-/* Frame of grail_excalibur_finish that will show the damage display,
-   Adjust this for the timing, note that damage is calculated ahead of 
-   time to work around the Freeze
-*/
-var DAMAGE_RENDER_FRAME = 255;
-
-/* Change these to adjust scaling and spacing for rendered numbers, these 
-work for the entity I provided but will likely need modification once you 
-found the right font and all. */
-var CENTER_DAMAGE_TEXT_SCALE = 3;
-var CENTER_DAMAGE_TEXT_SPACE = 48;
-var EXCALIBUR_FINISH_DAMAGE = 22;
-
-var grailFoe: Vfx = null;
-var grailHitFoe: Character = null;
-
-function grailFoeVfxFunction() {
-
-    grailFoe = match.createVfx(new VfxStats({
-        spriteContent: grailHitFoe.getResource().getContent(grailHitFoe.getPlayerConfig().character.contentId),
-        animation: "hurt_light_middle", layer: VfxLayer.FOREGROUND_FRONT, scaleX: 1.5, scaleY: 1.5, timeout: 200
-    }));
-
-    camera.getForegroundContainer().addChild(grailFoe.getViewRootContainer());
-
-    grailFoe.addShader(grailHitFoe.getCostumeShader());
-    grailFoe.setAlpha(0.5);
-
-    if (self.getOwner().isFacingLeft()) {
-        grailFoe.faceRight();
-        grailFoe.setX(320);
-        grailFoe.setY(280);
-    };
-    if (self.getOwner().isFacingRight()) {
-        grailFoe.faceLeft();
-        grailFoe.setX(320);
-        grailFoe.setY(280);
-    };
-    grailFoe.playFrame(10);
-    grailFoe.pause();
-
-}
-
-/**
- * Creates and aligns a set of vfxs to remder an integer damage value
- * @param damage The damage value, this will be automatically rounded down for you
- * @param vfxObjects the previous set of vfx objects, so we can make sure that they're cleaned up from previous calls of this function
- * @param container The container to add the vfx objects to, pass null if you dont want to do this
- * @param {Object} options Object to configure settings, be sure to fill in ALL the fields
- * @param {number} options.x x position of test, behaves differently depending on the container
- * @param {number} options.y x position of text, behaves differently depending on container
- * @param {number} options.space space between numbers
- * @param {number} options.scale modifies both x and y scale
- * @param {number} options.delay frames of delay before visibility
- */
-function renderDamage(damage: Int,
-    spriteResource: String,
-    vfxObjects: Array<{ vfx: Vfx, filter: HsbcColorFilter }>,
-    container: Container,
-    options: {
-        x: Int,
-        y: Int,
-        space: Int,
-        scale: Int,
-        delay: Int
-    }
-) {
-    if (vfxObjects == null) {
-        vfxObjects = [];
-    }
-
-
-
-    var resource = spriteResource;
-    var damageStr: String = "" + Math.floor(damage);
-    var damageNums = [];
-    Engine.forCount(damageStr.length, function (idx: Int) {
-        damageNums.push(damageStr.charAt(idx));
-        return true;
-    }, []);
-
-
-
-    var maxLength = damageStr.length;
-    var untrimmed = (vfxObjects == null) ? 0 : (vfxObjects.length);
-    if (untrimmed > 0) {
-        Engine.forCount(untrimmed, function (idx: Int) {
-            vfxObjects[idx].vfx.dispose();
-            return true;
-        }, []);
-    }
-
-    vfxObjects = vfxObjects.slice(untrimmed, vfxObjects.length);
-
-    var greyScale: Bool = damage < 100 ? true : false;
-
-    var makeVfx = function (pos: Int) {
-        var vfx = match.createVfx(new VfxStats({
-            spriteContent: resource,
-            animation: damageNums[pos],
-            x: 257 + (options.space) * (1 + pos),
-            y: 280 + (grailHitFoe.getEcbHeadY() * 0.6),
-            layer: VfxLayer.FOREGROUND_FRONT,
-            scaleX: options.scale,
-            scaleY: options.scale,
-            timeout: 100 + options.delay,
-            physics: true
-        }));
-        vfx.setAlpha(0);
-        vfx.addTimer(options.delay + 1, 1, function () {
-            vfx.setAlpha(1);
-        }, { persistent: true });
-
-        var filter = new HsbcColorFilter();
-        vfx.addFilter(filter);
-        return { vfx: vfx, filter: filter };
-    }
-
-    var makeEffectiveVfx = function (pos: Int) {
-        var vfx = match.createVfx(new VfxStats({
-            spriteContent: resource,
-            animation: "effective",
-            x: 320,
-            y: 280 + (grailHitFoe.getEcbHeadY() * 1.4),
-            layer: VfxLayer.FOREGROUND_FRONT,
-            scaleX: options.scale,
-            scaleY: options.scale,
-            timeout: 100 + options.delay,
-            physics: true
-        }));
-        vfx.setAlpha(0);
-        if (!greyScale) {
-            vfx.addTimer(options.delay + 1, 1, function () {
-                vfx.setAlpha(1);
-            }, { persistent: true });
-        }
-        var filter = new HsbcColorFilter();
-        // vfx.addFilter(filter);
-
-        return { vfx: vfx, filter: filter };
-
-    }
-
-
-    var insertVfx = function (vfx: { vfx: Vfx, filter: HsbcColorFilter }, pos: Int) {
-        var frame = damageNums[pos];
-
-        if (greyScale) {
-            vfx.filter.saturation = -1;
-        } else {
-            vfx.filter.saturation = 1;
-        }
-
-        if (vfxObjects[pos] == null) {
-            vfxObjects[pos] = vfx;
-            if (container != null) {
-                container.addChild(vfx.vfx.getViewRootContainer());
-            }
-        } else {
-            vfxObjects[pos].vfx.playAnimation(frame);
-        }
-    }
-
-
-
-    var curr = 0;
-    while (curr < maxLength) {
-        var vfx = makeVfx(curr);
-        insertVfx(vfx, curr);
-        curr++;
-    }
-    if (!greyScale) {
-        insertVfx(makeEffectiveVfx(curr), curr);
-    }
-
-    return vfxObjects;
-}
-
-
-
-/**
- * Base Function for damage display code
- * @param delay Delays the effect
- * @param offset damage added to the foes actual damage to display, useful if you want to precalculate damage in advance, used in conjunction with delay
- * @returns a list of vfx objects you can put in an allowList for match.freeze or
- */
-function displayGrailDamage(delay: Int, offset: Int) {
-    var player = grailHitFoe;
-
-    Engine.forEach(prevCenterSprites, function (obj: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
-        var vfx = obj.vfx;
-        vfx.dispose();
-        vfx.kill();
-        return true;
-    }, []);
-
-
-
-    var effects = renderDamage(
-        player.getDamage() + offset, getContent("number"), prevCenterSprites,
-        camera.getForegroundContainer(),
-        {
-            x: grailFoe.x,
-            y: grailFoe.y,
-            space: CENTER_DAMAGE_TEXT_SPACE,
-            scale: CENTER_DAMAGE_TEXT_SCALE,
-            delay: delay
-        }
-    );
-    prevCenterSprites = effects;
-
-    var curr = 0;
-    var mult = 1;
-    var animate = function (vfx: Vfx) {
-        if (curr > 20) {
-            vfx.setAlpha(vfx.getAlpha() - 0.02);
-            vfx.setY(vfx.getY() - 1);
-        }
-        if (curr % 5 == 0) {
-            vfx.setXVelocity(2 * mult);
-        }
-    };
-    var dispose = function (vfx: Vfx) {
-        if (!vfx.isDisposed()) {
-            vfx.dispose();
-        }
-    }
-    player.addTimer(delay, 1, function () {
-        player.addTimer(1, 100, function () {
-            Engine.forEach(effects, function (obj: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
-                animate(obj.vfx);
-                return true;
-            }, []);
-            curr++;
-            mult = mult * -1;
-        }, { persistent: true });
-
-        player.addTimer(101, 1, function () {
-            Engine.forEach(effects, function (obj: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
-                dispose(obj.vfx);
-                return true;
-            }, []);
-        }, { persistent: true });
-    }, { persistent: true });
-    var vfxs = [];
-    Engine.forEach(effects, function (item: { vfx: Vfx, filter: HsbcColorFilter }, _idx: Int) {
-        vfxs.push(item.vfx);
-    }, []);
-    return vfxs;
 
 }
