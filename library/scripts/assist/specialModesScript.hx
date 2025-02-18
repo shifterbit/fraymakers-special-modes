@@ -14,7 +14,6 @@ var enabled = self.makeBool(false);
 var prefix = "specialModeType_";
 var globalMode = "none";
 var timeLeft = self.makeInt(60 * 60 * 5);
-var globalDummy: Projectile = null;
 var globalController: CustomGameObject = null;
 var slowDown: { user: GameObject, timer: Int } = null;
 var MISSION_FAIL = -1;
@@ -298,7 +297,7 @@ function enableMode() {
             case ("coin"): { enableCoins(); };
             case ("mission"): { enableMissionMode(); };
             case ("ultimate"): { enableUltimateMode(); }
-            default: { };
+            default: { enableMVSMode(); };
         }
     }
 
@@ -359,16 +358,14 @@ function enableTurboMode() {
 }
 
 function slowMotion(duration: Int, persistent: Bool) {
-    if (globalDummy == null) {
-        globalDummy = match.createProjectile(getContent("dummyProj"), null);
-    }
+
     if (slowDown != null) {
         slowDown.user.removeTimer(slowDown.timer);
     }
-    var timer = globalDummy.addTimer(4, 4, function () {
-        match.freezeScreen(2, [self, camera, globalDummy]);
+    var timer = self.addTimer(4, 4, function () {
+        match.freezeScreen(2, [self, camera]);
     }, { persistent: persistent });
-    slowDown = { user: globalDummy, timer: timer };
+    slowDown = { user: self, timer: timer };
 }
 
 function zoomInOnPlayer(target: Character, duration: Int) {
@@ -760,11 +757,198 @@ function enableSSF1Mode() {
         ssf1Mode(player);
         return true;
     }, []);
+
+    disableLedges();
+    disablePlatDrops();
+
+}
+
+function disableLedges() {
     Engine.forEach(match.getStructures(), function (structure: Structure, _idx: Int) {
-        structure.updateStructureStats({ leftLedge: false, rightLedge: false, dropThrough: false });
+        structure.updateStructureStats({ leftLedge: false, rightLedge: false });
         return true;
     }, []);
+}
+function disablePlatDrops() {
+    Engine.forEach(match.getStructures(), function (structure: Structure, _idx: Int) {
+        structure.updateStructureStats({ dropThrough: false });
+        return true;
+    }, []);
+}
 
+function enableMVSMode() {
+    disableLedges();
+    Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
+        mvsMode(player);
+        // player.addEventListener(EntityEvent.STATE_CHANGE, function (e: EntityEvent) {
+        //     var toState: Int = e.data.toState;
+        //     if (toState == CState.AIRDASH_INITIAL || toState == CState.AIRDASH_ACCELERATING) {
+        //         uniAssault(player);
+        //     }
+        // }, { persistent: true });
+
+        return true;
+    }, []);
+}
+
+function playWallJump(player: Character) {
+    Engine.log("PlayWalljump");
+    //When the player wall jumps, essentially perform a ledge jump (but with the wall jump animation)
+    player.resetMomentum();
+    if (player.hasAnimation("wall_jump")) {
+        player.playAnimation("wall_jump");
+    } else {
+        player.playAnimation("jump_in");
+    }
+    player.setXVelocity(1.2 * player.flipX(player.getCharacterStat("ledgeJumpXSpeed")));
+    player.setYVelocity(player.getCharacterStat("ledgeJumpYSpeed"));
+
+}
+
+// function onWallHit(player: Character) {
+//     //When the player touches a wall mid-air, start clinging
+//     var walljumpAnimation = player.hasAnimation("wall_jump") ? "wall_jump" : "jump_in";
+//     var wallclingAnimation = player.hasAnimation("wall_cling") ? "wall_cling" : "jab";
+
+
+//     if ((!player.isOnFloor() && player.inState(CState.FALL)
+//      || player.inState(CState.JUMP_LOOP) 
+//      || player.inState(CState.JUMP_MIDAIR)) 
+//      && player.getAnimation() != wallclingAnimation && player.getAnimation() != walljumpAnimation) {
+//         player.playAnimation(wallclingAnimation);
+//     }
+// }
+
+function mvsMode(player: Character) {
+    player.updateCharacterStats({ airdashLimit: 2 });
+    player.addTimer(1, -1, function () {
+        var held = player.getHeldControls();
+        var ecb = player.getEcbCollisionBox();
+        var leftHipPoint = Point.create(player.getX() - 5, player.getY() + player.getEcbLeftHipY());
+        var rightHipPoint = Point.create(player.getX() + ecb.width + 5, player.getY() + player.getEcbLeftHipY());
+        var result = Point.create(1);
+        var rightWalls = player.hitTestStructuresWithLineSegment(leftHipPoint, rightHipPoint, result, { structureType: StructureType.RIGHT_WALL });
+        var leftWalls = player.hitTestStructuresWithLineSegment(leftHipPoint, rightHipPoint, result, { structureType: StructureType.LEFT_WALL });
+        if (held.JUMP_ANY) {
+            if (leftWalls != null) {
+                player.faceLeft();
+                playWallJump(player);
+            } else if (rightWalls != null) {
+                player.faceRight();
+                playWallJump(player);
+            }
+        }
+    }, { persistent: true });
+
+    player.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function () {
+        player.setAirdashCount(player.getGameObjectStat("airdashLimit"));
+        player.preLand(false);
+        if (player.inState(CState.FALL_SPECIAL) || player.getAnimation() == "fall_special") {
+            player.toState(CState.FALL);
+        }
+
+    }, { persistent: true });
+    player.addEventListener(EntityEvent.STATE_CHANGE, function (e: EntityEvent) {
+        var toState = e.data.toState;
+        if (player.inAerialAttackState()) {
+            player.setYVelocity((player.getYVelocity() * 0.1));
+            player.updateAnimationStats({ gravityMultiplier: 0.2, ySpeedConservation: 0.2, xSpeedConservation: 0.2, terminalVelocity: 1, landType: LandType.NONE, xSpeedConservation: 0, allowMovement: false });
+        }
+
+        switch (toState) {
+            case CState.GRAB:
+                directionToAttack(player);
+            case CState.SHIELD_IN:
+                directionToAttack(player);
+            case CState.AIRDASH_INITIAL:
+                player.resetMomentum();
+                player.setXVelocity(0);
+                player.setYVelocity(0);
+                if (player.isOnFloor()) {
+                    player.setYVelocity(-1);
+                }
+
+                var vector = getAirDodgeAngle(player, Math.min(10, player.getCharacterStat("airdashSpeedCap")));
+                var movingSpeed = vector.movingSpeed;
+                var angle = vector.angle;
+
+                var bdpgoinFast = "cc_3380358897::bdpgoinfast.bdpgoinfast";
+                var animation = "spot_dodge";
+                if (player.getGameObjectStat("spriteContent") == bdpgoinFast) {
+                    animation = "spot_dodge";
+                    if (movingSpeed > 1) {
+                        animation = "special_down_jump";
+                    }
+                }
+
+
+
+
+                player.toState(CState.EMOTE, animation);
+                player.updateAnimationStats({ endType: AnimationEndType.NONE, allowMovement: false, });
+                var aerialFriction = player.getGameObjectStat("aerialFriction");
+                player.updateAnimationStats({ bodyStatus: BodyStatus.INTANGIBLE });
+                player.toggleGravity(false);
+                player.setXVelocity(Math.round(Math.calculateXVelocity(movingSpeed, angle)));
+                player.setYVelocity(Math.round(-Math.calculateYVelocity(movingSpeed, angle)));
+
+
+
+
+                var period = (movingSpeed == 1) ? 45 : 18;
+                player.addTimer(period, 1, function () {
+                    player.toggleGravity(true);
+                    player.resetMomentum();
+
+                    var leftDodge = false;
+
+                    player.updateCharacterStats({ doubleJumpSpeeds: [] });
+                    function afterDodge() {
+                        if (!leftDodge) {
+                            player.removeEventListener(GameObjectEvent.LAND, afterDodge);
+                            player.removeEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge);
+                            leftDodge = true;
+                        }
+                    }
+                    player.endAnimation();
+                    player.addEventListener(GameObjectEvent.LAND, afterDodge, { persistent: true });
+                    player.addEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge, { persistent: true });
+                });
+
+        }
+
+    }, { persistent: true });
+}
+
+function directionToAttack(player: Character) {
+    var held = player.getHeldControls();
+    var pressed = player.getPressedControls();
+    var left = held.LEFT || pressed.LEFT;
+    var right = held.RIGHT || pressed.RIGHT;
+    var up = held.UP || pressed.UP;
+    var down = held.DOWN || pressed.DOWN;
+    var neutral = !(up || down || left || right);
+    if (up) {
+        player.toState(CState.TILT_UP);
+
+    } else if (down) {
+        player.toState(CState.TILT_DOWN);
+
+    } else if (right) {
+        if (player.isFacingLeft()) {
+            player.flip();
+        }
+        player.toState(CState.TILT_FORWARD);
+
+    } else if (left) {
+        if (player.isFacingRight()) {
+            player.flip();
+        }
+        player.toState(CState.TILT_FORWARD);
+    } else if (neutral) {
+        player.toState(CState.JAB);
+
+    }
 }
 
 function disableAllAttacks(player: Character) {
@@ -840,7 +1024,15 @@ function distanceFromDeathBounds(entity: Entity, components) {
 }
 
 function finishZoom(event: GameObjectEvent) {
+
     var victim: Character = event.data.self;
+    victim.addTimer(2, 10, function () {
+        Engine.log({
+            speed: victim.getYSpeed(),
+            knockback: victim.getYKnockback(),
+            velcoity: victim.getYVelocity()
+        });
+    }, { persistent: true });
     if (!victim.hasBodyStatus(BodyStatus.INVINCIBLE) && event.data.hitboxStats.flinch) {
         var xVel = victim.getXKnockback();
         var yVel = victim.getYKnockback();
@@ -866,7 +1058,7 @@ function finishZoom(event: GameObjectEvent) {
         var stats = event.data.hitboxStats;
         var angle = stats.angle;
         var autoLinkAngles = [SpecialAngle.AUTOLINK_STRONGER, SpecialAngle.AUTOLINK_STRONGEST, SpecialAngle.AUTOLINK_WEAK];
-        if (autoLinkAngles.indexOf(stats.rawAngle) < 0 && (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1))) { 
+        if (autoLinkAngles.indexOf(stats.rawAngle) < 0 && (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1))) {
             applyKillSpark(0, victim, Math.getAngleFromVelocity(xVel, yVel), 1.5, victim);
             event.data.hitboxStats.hitstop = event.data.hitboxStats.hitstop + 10;
             event.data.hitboxStats.selfHitstop = event.data.hitboxStats.selfHitstop + 10;
@@ -1336,7 +1528,7 @@ function createShield(player: Character, settings: {
     if (settings == null) {
         settings = {
             hp: 60,
-            damageFormula: 0.7,
+            damageFormula: function (damage: Int) { return damage * 0.7; },
             regenRate: 0.07,
             depleteRate: 0.28,
             timeTodrop: 8,
@@ -1571,6 +1763,81 @@ function createShield(player: Character, settings: {
 
 }
 
+function uniAssault(player: Character) {
+    var held = player.getHeldControls();
+    var pressed = player.getPressedControls();
+    var left = held.LEFT || pressed.LEFT;
+    var right = held.RIGHT || pressed.RIGHT;
+    var up = held.UP || pressed.UP;
+    var down = held.DOWN || pressed.DOWN;
+    var cAirDash = !(held.hasRightStickAttackFlag() || held.hasRightStickAttackFlag());
+    if (cAirDash) {
+        left = left || held.RIGHT_STICK_LEFT || pressed.RIGHT_STICK_LEFT;
+        right = right || held.RIGHT_STICK_RIGHT || pressed.RIGHT_STICK_RIGHT;
+        up = up || held.RIGHT_STICK_UP || pressed.RIGHT_STICK_UP;
+        down = down || held.RIGHT_STICK_DOWN || pressed.RIGHT_STICK_DOWN;
+    }
+
+    var initialXVelocity = 10; // this should always be positive
+    var initialYVelocity = -10; // this should always be negative
+    var airdashAnim = "emote";
+
+    if (left) {
+        if (player.isFacingLeft()) {
+            player.toState(CState.EMOTE, "uniAssaultForward");
+        } else {
+            // self.toState(CState.EMOTE, "uniAssaultBackward");
+        }
+        player.toState(CState.EMOTE, airdashAnim);
+
+        player.setXVelocity(-initialXVelocity);
+        player.setYVelocity(initialYVelocity);
+    } else if (right) {
+        if (player.isFacingRight()) {
+            // self.toState(CState.EMOTE, "uniAssaultForward");
+        } else {
+            // self.toState(CState.EMOTE, "uniAssaultBackward");
+        }
+        player.toState(CState.EMOTE, airdashAnim);
+
+
+        player.setXVelocity(initialXVelocity);
+        player.setYVelocity(initialYVelocity);
+
+    } else {
+        player.toState(CState.EMOTE, airdashAnim);
+
+        // self.toState(CState.EMOTE, "uniAssaultForward");
+        player.setXVelocity(player.flipX(initialXVelocity));
+        player.setYVelocity(initialYVelocity);
+    }
+    player.updateAnimationStats({ interruptible: true });
+    player.addEventListener(EntityEvent.STATE_CHANGE, function cancelAirdash(e: EntityEvent) {
+        player.removeEventListener(EntityEvent.STATE_CHANGE, cancelAirdash);
+        var toState = e.data.toState;
+        if (toState == CState.AIRDASH_INITIAL) {
+            player.addEventListener(EntityEvent.STATE_CHANGE, cancelAirdash, { persistent: true });
+        }
+
+        function onWhiff() {
+            player.removeEventListener(EntityEvent.STATE_CHANGE, onWhiff);
+            player.toState(CState.FALL_SPECIAL);
+        }
+
+        function onHit(e2: GameObjectEvent) {
+            var foe = e2.data.foe;
+            if (foe.hasBodyStatus(BodyStatus.INVINCIBLE) || foe.hasBodyStatus(BodyStatus.INVINCIBLE_GRABBABLE)) {
+                return;
+            }
+            player.removeEventListener(EntityEvent.STATE_CHANGE, onWhiff);
+        }
+        player.addEventListener(GameObjectEvent.HIT_DEALT, onHit);
+        player.addEventListener(EntityEvent.STATE_CHANGE, onWhiff, { persistent: true });
+
+
+    }, { persistent: true });
+}
+
 function getAirDodgeAngle(player: Character, speed: Int) {
     var held = player.getHeldControls();
     var pressed = player.getPressedControls();
@@ -1585,7 +1852,6 @@ function getAirDodgeAngle(player: Character, speed: Int) {
         up = up || held.RIGHT_STICK_UP || pressed.RIGHT_STICK_UP;
         down = down || held.RIGHT_STICK_DOWN || pressed.RIGHT_STICK_DOWN;
     }
-    var shield = createShield(self.getOwner(), null);
     var movingSpeed = speed;
     var angle = 0;
 
@@ -1607,7 +1873,7 @@ function getAirDodgeAngle(player: Character, speed: Int) {
         angle = 270;
     } else {
         angle = 90;
-        movingSpeed = 1;
+        movingSpeed = 0;
     }
     // var ret = { angle: angle, movingSpeed: movingSpeed };
     return { angle: angle, movingSpeed: movingSpeed };
