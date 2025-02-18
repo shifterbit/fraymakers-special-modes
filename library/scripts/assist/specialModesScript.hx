@@ -800,7 +800,7 @@ function playWallJump(player: Character) {
     } else {
         player.playAnimation("jump_in");
     }
-    player.setXVelocity(1.2 * player.flipX(player.getCharacterStat("ledgeJumpXSpeed")));
+    player.setXVelocity(1.5 * player.flipX(player.getCharacterStat("ledgeJumpXSpeed")));
     player.setYVelocity(player.getCharacterStat("ledgeJumpYSpeed"));
 
 }
@@ -857,6 +857,8 @@ function mvsMode(player: Character) {
 
         switch (toState) {
             case CState.GRAB:
+                directionToAttack(player);
+            case CState.PARRY_IN:
                 directionToAttack(player);
             case CState.SHIELD_IN:
                 directionToAttack(player);
@@ -928,23 +930,52 @@ function directionToAttack(player: Character) {
     var up = held.UP || pressed.UP;
     var down = held.DOWN || pressed.DOWN;
     var neutral = !(up || down || left || right);
+    var grounded = player.isOnFloor();
     if (up) {
-        player.toState(CState.TILT_UP);
+        if (grounded) {
+            player.toState(CState.TILT_UP);
+        } else {
+            player.toState(CState.AERIAL_UP);
+        }
 
     } else if (down) {
-        player.toState(CState.TILT_DOWN);
+        if (grounded) {
+            player.toState(CState.TILT_DOWN);
+        } else {
+            player.toState(CState.AERIAL_DOWN);
+        }
 
     } else if (right) {
-        if (player.isFacingLeft()) {
-            player.flip();
+        if (grounded) {
+            if (player.isFacingLeft()) {
+                player.flip();
+            }
+            player.toState(CState.TILT_FORWARD);
+        } else {
+            if (player.isFacingRight()) {
+                player.toState(CState.AERIAL_FORWARD);
+
+            } else {
+                player.toState(CState.AERIAL_BACK);
+
+            }
         }
-        player.toState(CState.TILT_FORWARD);
 
     } else if (left) {
-        if (player.isFacingRight()) {
-            player.flip();
+        if (grounded) {
+            if (player.isFacingRight()) {
+                player.flip();
+            }
+            player.toState(CState.TILT_FORWARD);
+        } else {
+            if (player.isFacingLeft()) {
+                player.toState(CState.AERIAL_FORWARD);
+
+            } else {
+                player.toState(CState.AERIAL_BACK);
+
+            }
         }
-        player.toState(CState.TILT_FORWARD);
     } else if (neutral) {
         player.toState(CState.JAB);
 
