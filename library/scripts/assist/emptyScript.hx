@@ -179,3 +179,37 @@ function healFriends(maxDistance: Int, repeats: Int, interval: Int, healing: Int
         return true;
     }, []);
 }
+var self: Character;
+
+
+function initialize() {
+    if (self.getCostumeIndex() == 0) {
+        costumeselected = true;
+    }
+
+    self.addEventListener(GameObjectEvent.LINK_FRAMES, handleLinkFrames, { persistent: true });
+
+    if (self.getCostumeIndex() == 25) {
+        self.updateCharacterStats({
+            gravity: 0.5,
+            baseScaleX: 2.0,
+            baseScaleY: 2.0,
+        });
+    }
+
+    if (self.getCostumeIndex() == 25 && self.getLives() == 1) {
+
+        self.updateHitboxStats(0,
+            {
+                damage: 40,
+                angle: 60,
+                hitSoundOverride: "swordM",
+                baseKnockback: 80,
+                knockbackGrowth: 40,
+                hitstop: 3,
+                selfHitstop: -1,
+                limb: AttackLimb.FIST
+            });
+    }
+
+}

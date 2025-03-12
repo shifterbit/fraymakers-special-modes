@@ -22,10 +22,104 @@ var MISSION_SUCCESS = 1;
 var MISSION_PENDING = 0;
 var FINAL_SMASH_CHARGE = 500;
 var PARRY_WINDOW = 10;
+var ULTIMATE_VARIANT = 0;
+var GENERIC_VARIANT = 1;
+var SMASH64_VARIANT = 2;
+var state: ApiVarObject = self.makeObject({
+    players: [{}, {}, {}, {}]
+});
 
-var ULTIMATE_MODE = 0;
-var MVS_MODE = 1;
-var SMASH64_MODE = 2;
+var allActions = [
+    CharacterActions.AERIAL_NEUTRAL,
+    CharacterActions.AERIAL_FORWARD,
+    CharacterActions.AERIAL_DOWN,
+    CharacterActions.AERIAL_BACK,
+    CharacterActions.AERIAL_UP,
+    CharacterActions.SPECIAL_UP,
+    CharacterActions.SPECIAL_DOWN,
+    CharacterActions.SPECIAL_SIDE,
+    CharacterActions.SPECIAL_NEUTRAL,
+    CharacterActions.STRONG_DOWN,
+    CharacterActions.STRONG_FORWARD,
+    CharacterActions.STRONG_UP,
+    CharacterActions.JAB,
+    CharacterActions.TILT_FORWARD,
+    CharacterActions.TILT_DOWN,
+    CharacterActions.TILT_UP,
+    CharacterActions.DASH_ATTACK,
+    CharacterActions.THROW_BACK,
+    CharacterActions.THROW_DOWN,
+    CharacterActions.THROW_FORWARD,
+    CharacterActions.THROW_BACK,
+    CharacterActions.CRASH_ATTACK,
+    CharacterActions.LEDGE_ATTACK,
+];
+
+function getState(): {
+    players: Array<{ port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int, damage: Float, jumps: Int }>
+} {
+    return state.get();
+}
+
+
+function setState(newState: {
+    players: Array<{ port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int }>
+}) {
+    state.set(newState);
+}
+
+function getPlayerState(player: Character): { port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int, damage: Float, doubleJumpCount: Int, facingRight: Bool, x: Float, y: Float } {
+    return {
+        port: player.getPlayerConfig().port,
+        animation: player.getAnimation(),
+        frame: player.getCurrentFrame(),
+        state: player.getState(),
+        xKnocback: player.getXKnockback(),
+        yKnockback: player.getYKnockback(),
+        xVelocity: player.getXVelocity(),
+        yVelocity: player.getYVelocity(),
+        hitstop: player.getHitstop(),
+        hitstun: player.getHitstun(),
+        damage: player.getDamage(),
+        doubleJumpCount: player.getDoubleJumpCount(),
+        facingRight: player.isFacingRight(),
+        x: player.getX(),
+        y: player.getY(),
+    }
+}
+
+function setPlayerState(player: Character, stateData: { port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int, damage: Float, doubleJumpCount: Int, facingRight: Bool, x: Float, y: Float }) {
+    player.setY(stateData.y);
+    player.setX(stateData.x);
+
+    player.setYVelocity(stateData.yVelocity);
+    player.setXVelocity(stateData.xVelocity);
+
+    player.setYKnockback(stateData.yKnockback);
+    player.setXKnockback(stateData.xKnocback);
+
+    player.setState(stateData.state);
+    player.playAnimation(stateData.animation);
+    player.playFrame(stateData.frame);
+
+    player.forceStartHitstop(stateData.hitstop);
+    player.forceStartHitstun(stateData.hitstun);
+
+    player.setDoubleJumpCount(stateData.doubleJumpCount);
+    player.setDamage(stateData.damage);
+    if (stateData.facingRight) {
+        player.faceRight();
+    } else {
+        player.faceLeft();
+    }
+
+    player.setState(stateData.state);
+    player.setState(stateData.state);
+    player.setState(stateData.state);
+}
+
+
+
 var modes = [
     "none",
     "mega",
@@ -303,7 +397,7 @@ function enableMode() {
             case ("coin"): { enableCoins(); };
             case ("mission"): { enableMissionMode(); };
             case ("ultimate"): { enableUltimateMode(); }
-            default: { enableMVSMode(); };
+            default: { };
         }
     }
 
@@ -349,10 +443,41 @@ function enableVampireMode() {
     }, []);
 }
 
+function customComboMode(player: Character, duration: Int) {
+    function _mTurbo() {
+        var pressed = player.getPressedControls();
+        if (pressed.ATTACK) {
+            if (pressed.STRONG) {
+                directionToStrong(player);
+            } else {
+                directionToNormal(player);
+            }
+        }
+        if (pressed.SPECIAL) {
+            directionToSpecial(player);
+        }
+        player.preLand();
+    }
+    player.addEventListener(GameObjectEvent.HIT_DEALT, _mTurbo, { persistent: true });
+
+    function remove() {
+        player.removeEventListener(GameObjectEvent.HIT_DEALT, _mTurbo);
+    }
+
+    player.addTimer(duration, 1, function () {
+        remove();
+    }, { persistent: true });
+
+    return remove;
+}
 
 function turbo(event: GameObjectEvent) {
     var p: Character = event.data.self;
     p.updateAnimationStats({ interruptible: true });
+    // p.addEventListener(EntityEvent.STATE_CHANGE, function change() {
+    //     p.removeEventListener(EntityEvent.STATE_CHANGE,change);
+
+    // }, {persistent: true});
 }
 
 function enableTurboMode() {
@@ -368,18 +493,17 @@ function slowMotion(duration: Int, persistent: Bool) {
     if (slowDown != null) {
         slowDown.user.removeTimer(slowDown.timer);
     }
-    var timer = self.addTimer(4, 4, function () {
+    var timer = self.getOwner().addTimer(4, 4, function () {
         match.freezeScreen(2, [self, camera]);
     }, { persistent: persistent });
-    slowDown = { user: self, timer: timer };
+    slowDown = { user: self.getOwner(), timer: timer };
 }
 
-function zoomInOnPlayer(target: Character, duration: Int) {
+function zoomInOnPlayer(target: GameObject, duration: Int) {
     if (!target.hasBodyStatus(BodyStatus.INVINCIBLE)) {
         var target: Character = target;
         camera.addForcedTarget(target);
         camera.setMode(1);
-
 
         Engine.forEach(match.getPlayers(), function (p: Character) {
             p.getDamageCounterContainer().alpha = 0;
@@ -429,7 +553,7 @@ function applyKillSpark(hue: Int, owner: GameObject, angle: Int, scale: Int, vfx
     var vfx = match.createVfx(
         new VfxStats({
             animation: "killSpark",
-            spriteContent: getContent("vfx"),
+            spriteContent: self.getResource().getContent("vfx"),
             rotation: -angle,
             scaleX: scale, scaleY: scale
         })
@@ -469,16 +593,23 @@ function increaseHitStop(event: GameObjectEvent) {
     event.data.hitboxStats.hitstopOffset = 10;
     event.data.hitboxStats.selfHitstopOffset = 10;
 }
+function dramatic(obj: GameObject) {
+    obj.addEventListener(GameObjectEvent.PROJECTILE_CREATED, function (e: GameObjectEvent) {
+        dramatic(e.data.other);
+    }, { persistent: true });
+    obj.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+        var stats = event.data.hitboxStats;
+        zoomInOnPlayer(event.data.foe, stats.selfHitstop);
+        slowMotion(stats.selfHitstop, false);
+    }, { persistent: true });
+    obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, increaseHitStop, { persistent: true });
+}
 
 function enableDramaticMode() {
     var players = match.getPlayers();
+
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
-            var stats = event.data.hitboxStats;
-            zoomInOnPlayer(event.data.foe, stats.selfHitstop);
-            slowMotion(stats.selfHitstop, false);
-        }, { persistent: true });
-        player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, increaseHitStop, { persistent: true });
+        dramatic(player);
         return true;
     }, []);
 }
@@ -489,35 +620,41 @@ function willCrit() {
 }
 
 
+function criticalHit(obj: GameObject) {
+    var crit = false;
+    obj.addEventListener(GameObjectEvent.PROJECTILE_CREATED, function (e: GameObjectEvent) {
+        criticalHit(e.data.other);
+    }, { persistent: true });
+    obj.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+        var stats = event.data.hitboxStats;
+        if (!(event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE))
+            && (crit
+                || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives"))) {
+            zoomInOnPlayer(event.data.foe, stats.selfHitstop);
+            slowMotion(stats.selfHitstop, true);
+            applyKillSpark(40, event.data.foe, stats.angle, 1, event.data.foe);
+            darkenScreen(stats.selfHitstop + 15, 10);
+
+        }
+    }, { persistent: true });
+
+    obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
+        if (crit || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
+            toCriticalHit(event);
+        }
+    }, { persistent: true });
+
+    obj.addTimer(1, -1, function () {
+        crit = willCrit();
+
+    }, { persistent: true });
+    return true;
+}
 
 function enableCriticalMode() {
     var players = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        var crit = false;
-        player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
-            var stats = event.data.hitboxStats;
-            if (!(event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE))
-                && (crit
-                    || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives"))) {
-                zoomInOnPlayer(event.data.foe, stats.selfHitstop);
-                slowMotion(stats.selfHitstop, true);
-                applyKillSpark(40, event.data.foe, stats.angle, 1, event.data.foe);
-                darkenScreen(stats.selfHitstop + 15, 10);
-
-            }
-        }, { persistent: true });
-
-        player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
-            if (crit || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
-                toCriticalHit(event);
-            }
-        }, { persistent: true });
-
-        player.addTimer(1, -1, function () {
-            crit = willCrit();
-
-        }, { persistent: true });
-        return true;
+        criticalHit(player);
     }, []);
 
 }
@@ -588,40 +725,20 @@ function exMode(obj: Character) {
         var cancelWindow = event.data.hitboxStats.hitstop + 10;
         var airborne = !player.isOnFloor();
         if (airborne) {
-            player.preLand(true);
+            player.preLand(false);
         }
         player.updateCharacterStats({ grabAirType: GrabAirType.GRAB });
         player.addTimer(1, cancelWindow, function () {
 
             var currentAnimation = player.getAnimation();
             var usingSpecial = currentAnimation.substr(0, 7) == "special";
-            var heldControls = player.getHeldControls();
-            var side = heldControls.LEFT || heldControls.RIGHT;
-            var up = heldControls.UP;
-            var down = heldControls.DOWN;
-            var neutral = !(up || down || side);
-            var shield = heldControls.SHIELD || heldControls.SHIELD1 || heldControls.SHIELD_AIR || heldControls.SHIELD2;
-            var special = heldControls.SPECIAL;
-            var jump = heldControls.JUMP_ANY || heldControls.JUMP || heldControls.TAP_JUMP;
+            var held = player.getHeldControls();
+            var pressed = player.getPressedControls();
 
-            if (!usingSpecial) {
-                if (special && side && airborne) {
-                    player.playAnimation("special_side_air");
-                } else if (special && side) {
-                    player.playAnimation("special_up");
-                } else if (special && up && airborne) {
-                    player.playAnimation("special_up_air");
-                } else if (special && up) {
-                    player.playAnimation("special_up");
-                } else if (special && down && airborne) {
-                    player.playAnimation("special_down_air");
-                } else if (special && down) {
-                    player.playAnimation("special_down");
-                } else if (special && neutral && airborne) {
-                    player.playAnimation("special_neutral_air");
-                } else if (special && neutral) {
-                    player.playAnimation("special_neutral");
-                }
+            var jump = pressed.JUMP_ANY;
+
+            if (!usingSpecial && pressed.SPECIAL) {
+                directionToSpecial(player);
             } else {
                 if (jump && airborne) {
                     obj.setState(CState.JUMP_MIDAIR);
@@ -646,11 +763,8 @@ function ssf1Mode(player: Character) {
     player.addStatusEffect(StatusEffectType.AERIAL_FRICTION_MULTIPLIER, 0.07);
     player.addStatusEffect(StatusEffectType.ATTACK_HITSTOP_MULTIPLIER, 0);
     player.addStatusEffect(StatusEffectType.ATTACK_SELF_HITSTOP_MULTIPLIER, 0);
+    player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 0);
 
-
-    // player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_UP);
-    // player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_FORWARD);
-    // player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.STRONG_DOWN);
     player.updateCharacterStats({ airdashLimit: 0, shieldXOffset: 99999, shieldYOffset: 9999 });
 
     player.addTimer(2, -1, function () {
@@ -669,60 +783,11 @@ function ssf1Mode(player: Character) {
             toState == CState.SHIELD_IN
             || toState == CState.SHIELD_AIR
             || toState == CState.AIRDASH_INITIAL
+            || toState == CState.GRAB
             || toState == CState.STRONG_DOWN_IN
             || toState == CState.STRONG_FORWARD_IN
             || toState == CState.STRONG_UP_IN) {
-            var held = player.getHeldControls();
-            var pressed = player.getPressedControls();
-            var left = held.LEFT || pressed.LEFT;
-            var right = held.RIGHT || pressed.RIGHT;
-            var up = held.UP || pressed.UP;
-            var down = held.DOWN || pressed.DOWN;
-            var grounded = player.isOnFloor();
-
-            var attackOrSpecial = (held.hasRightStickAttackFlag() || held.hasRightStickAttackFlag());
-            var special = held.hasRightStickSpecialFlag();
-            if (attackOrSpecial) {
-                left = left || held.RIGHT_STICK_LEFT || pressed.RIGHT_STICK_LEFT;
-                right = right || held.RIGHT_STICK_RIGHT || pressed.RIGHT_STICK_RIGHT;
-                up = up || held.RIGHT_STICK_UP || pressed.RIGHT_STICK_UP;
-                down = down || held.RIGHT_STICK_DOWN || pressed.RIGHT_STICK_DOWN;
-            }
-            if (up) {
-                if (!special) {
-                    if (grounded) { player.toState(CState.TILT_UP); } else { player.toState(CState.AERIAL_UP); }
-                } else {
-                    player.toState(CState.UP);
-
-                }
-            } else if (down) {
-                if (!special) {
-                    if (grounded) { player.toState(CState.TILT_DOWN); } else { player.toState(CState.AERIAL_DOWN); }
-                } else {
-                    player.toState(CState.SPECIAL_DOWN);
-
-                }
-
-            } else if ((left && player.isFacingLeft()) || (right && player.isFacingRight())) {
-                if (!special) {
-                    if (grounded) { player.toState(CState.TILT_FORWARD); } else { player.toState(CState.AERIAL_FORWARD); }
-                } else {
-                    player.toState(CState.SPECIAL_SIDE);
-                }
-            } else if ((left && !player.isFacingLeft()) || (right && !player.isFacingRight())) {
-                if (!special) {
-                    if (grounded) { player.toState(CState.TILT_FORWARD); } else { player.toState(CState.AERIAL_BACK); }
-                } else {
-                    player.toState(CState.SPECIAL_SIDE);
-
-                }
-            } else {
-                if (!special) {
-                    if (grounded) { player.toState(CState.JAB); } else { player.toState(CState.AERIAL_NEUTRAL); }
-                } else {
-                    player.toState(CState.SPECIAL_NEUTRAL);
-                }
-            }
+            directionToNormal(player);
         }
     }, { persistent: true });
 
@@ -782,23 +847,72 @@ function disablePlatDrops() {
     }, []);
 }
 
+function hexToRGB(hex: Int): { r: Int, g: Int, b: Int } {
+    var r = (hex >> 16) & 0xFF;
+    var g = (hex >> 8) & 0xFF;
+    var b = hex & 0xFF;
+    return {
+        r: r,
+        g: g,
+        b: b,
+    }
+}
+
+
+function toGreyScale(hex: Int) {
+    var rgba = hexToRGB(hex);
+    var newAverage = (rgba.r + rgba.b + rgba.g) / 3;
+    var newHex = (1 << 24) + (newAverage << 16) + (newAverage << 8) + (newAverage);
+    return newHex;
+}
+
+
+function greyScalePlayer(player: Character) {
+    var paletteMap: IntMap = player.getCostumeShader().paletteMap;
+    for (key in paletteMap.keys()) {
+        paletteMap.set(key, toGreyScale(paletteMap.get(key)));
+    }
+
+}
+
+function clonePallete(player: Character) {
+    var v = new IntMap();
+    var oldMap = player.getCostumeShader().paletteMap;
+    for (key in oldMap.keys()) {
+        v.set(key, oldMap.get(key));
+    }
+    return v;
+
+}
+
 function enableMVSMode() {
     disableLedges();
     Engine.forEach(match.getCharacters(), function (player: Character, _idx: Int) {
-        mvsMode(player);
-        // player.addEventListener(EntityEvent.STATE_CHANGE, function (e: EntityEvent) {
-        //     var toState: Int = e.data.toState;
-        //     if (toState == CState.AIRDASH_INITIAL || toState == CState.AIRDASH_ACCELERATING) {
-        //         uniAssault(player);
+        // var clonedMap = clonePallete(player);
+        // greyScalePlayer(player);
+        // var currMap = player.getCostumeShader().paletteMap;
+        // var colorShader = createColorShader(0xfcc200);
+        // player.addShader(colorShader);
+        // player.addTimer(120, 1, function () {
+        //     player.removeShader(colorShader);
+        //     for (key in currMap) {
+        //         currMap.set(key, clonedMap.get(key));
         //     }
         // }, { persistent: true });
+
+        // mvsMode(player);
+        player.addEventListener(EntityEvent.STATE_CHANGE, function (e: EntityEvent) {
+            var toState: Int = e.data.toState;
+            if (toState == CState.AIRDASH_INITIAL || toState == CState.AIRDASH_ACCELERATING) {
+                uniAssault(player);
+            }
+        }, { persistent: true });
 
         return true;
     }, []);
 }
 
 function playWallJump(player: Character) {
-    Engine.log("PlayWalljump");
     //When the player wall jumps, essentially perform a ledge jump (but with the wall jump animation)
     player.resetMomentum();
     if (player.hasAnimation("wall_jump")) {
@@ -810,20 +924,6 @@ function playWallJump(player: Character) {
     player.setYVelocity(player.getCharacterStat("ledgeJumpYSpeed"));
 
 }
-
-// function onWallHit(player: Character) {
-//     //When the player touches a wall mid-air, start clinging
-//     var walljumpAnimation = player.hasAnimation("wall_jump") ? "wall_jump" : "jump_in";
-//     var wallclingAnimation = player.hasAnimation("wall_cling") ? "wall_cling" : "jab";
-
-
-//     if ((!player.isOnFloor() && player.inState(CState.FALL)
-//      || player.inState(CState.JUMP_LOOP) 
-//      || player.inState(CState.JUMP_MIDAIR)) 
-//      && player.getAnimation() != wallclingAnimation && player.getAnimation() != walljumpAnimation) {
-//         player.playAnimation(wallclingAnimation);
-//     }
-// }
 
 function superPreland(player: Character) {
     player.setAirdashCount(player.getGameObjectStat("airdashLimit"));
@@ -859,7 +959,7 @@ function mvsModeOnStateChange(e) {
 
 }
 
-function performAirdodge(player: Character, version: Int) {
+function performAirdodge(player: Character, variant: Int) {
     player.resetMomentum();
     player.setXVelocity(0);
     player.setYVelocity(0);
@@ -903,8 +1003,8 @@ function performAirdodge(player: Character, version: Int) {
                 player.removeEventListener(GameObjectEvent.LAND, afterDodge);
                 player.removeEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge);
                 leftDodge = true;
-                switch (version) {
-                    case ULTIMATE_MODE:
+                switch (variant) {
+                    case ULTIMATE_VARIANT:
                         enableActions(player)(null);
                 }
                 if (jumps.length > 0) {
@@ -913,15 +1013,16 @@ function performAirdodge(player: Character, version: Int) {
 
             }
         }
-        if (version == ULTIMATE_MODE) {
+        if (variant == ULTIMATE_VARIANT) {
             var gravity = player.getGameObjectStat("gravity");
             var distance = 215 + (Math.calculateYVelocity(movingSpeed, angle) * period);
             var dodgeTime = Math.sqrt(((2 * distance) / gravity));
             player.updateCharacterStats({ doubleJumpSpeeds: [] });
+            disableAllAttacks(player);
             player.addTimer(dodgeTime, 1, afterDodge, { persistent: true });
         }
         player.addEventListener(GameObjectEvent.LAND, afterDodge, { persistent: true });
-        player.addEventListener(GameObjectEvent.ENTER_HITSTUN, afterDodge, { persistent: true });
+        player.addEventListener(GameObjectEvent.HIT_RECEIVED, afterDodge, { persistent: true });
         player.endAnimation();
     });
 
@@ -934,9 +1035,7 @@ function mvsMode(player: Character) {
     player.updateCharacterStats({ airdashLimit: 2 });
 
     player.addEventListener(EntityEvent.COLLIDE_STRUCTURE, function () {
-        superPreland
-
-
+        superPreland(player);
     }, { persistent: true });
     player.addEventListener(EntityEvent.STATE_CHANGE, function (e: EntityEvent) {
         var toState = e.data.toState;
@@ -947,21 +1046,56 @@ function mvsMode(player: Character) {
 
         switch (toState) {
             case CState.GRAB:
-                directionToAttack(player);
+                directionToStrong(player);
             case CState.PARRY_IN:
-                directionToAttack(player);
+                directionToStrong(player);
             case CState.SHIELD_IN:
-                directionToAttack(player);
+                directionToNormal(player);
             case CState.AIRDASH_INITIAL:
-                performAirdodge(player, MVS_MODE);
+                performAirdodge(player, GENERIC_VARIANT);
 
 
         }
 
     }, { persistent: true });
 }
+var TILT = 0;
+var AERIAL = 1;
+var STRONG = 2;
+var SPECIAL = 3;
+var ups = [CState.TILT_UP, CState.AERIAL_UP, CState.STRONG_UP_ATTACK, CState.SPECIAL_UP];
 
-function directionToAttack(player: Character) {
+var downs = [CState.TILT_DOWN, CState.AERIAL_DOWN, CState.STRONG_DOWN_ATTACK, CState.SPECIAL_DOWN];
+
+var backwards = [CState.TILT_FORWARD, CState.AERIAL_BACK, CState.STRONG_FORWARD_ATTACK, CState.SPECIAL_SIDE];
+
+var forwards = [CState.TILT_FORWARD, CState.AERIAL_FORWARD, CState.STRONG_FORWARD_ATTACK, CState.SPECIAL_SIDE];
+
+var neutrals = [CState.JAB, CState.AERIAL_NEUTRAL, CState.STRONG_FORWARD_ATTACK, CState.SPECIAL_NEUTRAL];
+
+
+function directionToNormal(player: Character) {
+    if (player.isOnFloor()) {
+        directionToAttack(player, TILT);
+    } else {
+        directionToAttack(player, AERIAL);
+
+    }
+}
+
+function directionToStrong(player: Character) {
+    if (player.isOnFloor()) {
+        directionToAttack(player, STRONG);
+    } else {
+        directionToAttack(player, AERIAL);
+    }
+}
+
+function directionToSpecial(player: Character) {
+    directionToAttack(player, SPECIAL);
+}
+
+function directionToAttack(player: Character, variant: Int) {
     var held = player.getHeldControls();
     var pressed = player.getPressedControls();
     var left = held.LEFT || pressed.LEFT;
@@ -969,79 +1103,56 @@ function directionToAttack(player: Character) {
     var up = held.UP || pressed.UP;
     var down = held.DOWN || pressed.DOWN;
     var neutral = !(up || down || left || right);
-    var grounded = player.isOnFloor();
+    var rightStickRelevant = (held.hasRightStickAttackFlag() && variant != SPECIAL) || (held.hasRightStickSpecialFlag && variant == SPECIAL);
+    if (rightStickRelevant) {
+        left = left || held.RIGHT_STICK_LEFT;
+        right = right || held.RIGHT_STICK_RIGHT;
+        up = up || held.RIGHT_STICK_UP;
+        down = down || held.RIGHT_STICK_DOWN;
+    }
+
     if (up) {
-        if (grounded) {
-            player.toState(CState.TILT_UP);
-        } else {
-            player.toState(CState.AERIAL_UP);
-        }
-
+        var toState = ups[variant];
+        player.toState(toState);
     } else if (down) {
-        if (grounded) {
-            player.toState(CState.TILT_DOWN);
-        } else {
-            player.toState(CState.AERIAL_DOWN);
-        }
-
+        var toState = downs[variant];
+        player.toState(toState);
     } else if (right) {
-        if (grounded) {
-            if (player.isFacingLeft()) {
-                player.flip();
-            }
-            player.toState(CState.TILT_FORWARD);
-        } else {
-            if (player.isFacingRight()) {
-                player.toState(CState.AERIAL_FORWARD);
+        var toState = -1;
 
-            } else {
-                player.toState(CState.AERIAL_BACK);
-
-            }
+        if (!player.isFacingRight() && (variant != AERIAL)) {
+            player.flip();
         }
+
+        if (player.isFacingRight()) {
+            toState = forwards[variant];
+        } else {
+            toState = backwards[variant];
+        }
+        player.toState(toState);
 
     } else if (left) {
-        if (grounded) {
-            if (player.isFacingRight()) {
-                player.flip();
-            }
-            player.toState(CState.TILT_FORWARD);
-        } else {
-            if (player.isFacingLeft()) {
-                player.toState(CState.AERIAL_FORWARD);
+        var toState = -1;
 
-            } else {
-                player.toState(CState.AERIAL_BACK);
-
-            }
+        if (!player.isFacingLeft() && (variant != AERIAL)) {
+            player.flip();
         }
-    } else if (neutral) {
-        player.toState(CState.JAB);
 
+        if (player.isFacingLeft()) {
+            toState = forwards[variant];
+        } else {
+            toState = backwards[variant];
+        }
+
+        player.toState(toState);
+    } else if (neutral) {
+        var toState = neutrals[variant];
+        player.toState(toState);
     }
 }
 
 function disableAllAttacks(player: Character) {
-    var disabledActions = [
-        CharacterActions.AERIAL_NEUTRAL,
-        CharacterActions.AERIAL_FORWARD,
-        CharacterActions.AERIAL_DOWN,
-        CharacterActions.AERIAL_BACK,
-        CharacterActions.AERIAL_UP,
-        CharacterActions.SPECIAL_UP,
-        CharacterActions.SPECIAL_DOWN,
-        CharacterActions.SPECIAL_SIDE,
-        CharacterActions.SPECIAL_NEUTRAL,
-        CharacterActions.STRONG_DOWN,
-        CharacterActions.STRONG_FORWARD,
-        CharacterActions.STRONG_UP,
-        CharacterActions.JAB,
-        CharacterActions.TILT_FORWARD,
-        CharacterActions.TILT_DOWN,
-        CharacterActions.TILT_UP
-    ];
-
-    Engine.forEach(disabledActions, function (action: Int, _idx: Int) {
+    Engine.forEach(allActions, function (action: Int, _idx: Int) {
         player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: STATUS_TAG });
         return true;
     }, []);
@@ -1092,70 +1203,70 @@ function distanceFromDeathBounds(entity: Entity, components) {
 }
 
 function finishZoom(event: GameObjectEvent) {
-
     var victim: Character = event.data.self;
-    victim.addTimer(2, 10, function () {
-        Engine.log({
-            speed: victim.getYSpeed(),
-            knockback: victim.getYKnockback(),
-            velcoity: victim.getYVelocity()
-        });
-    }, { persistent: true });
-    if (!victim.hasBodyStatus(BodyStatus.INVINCIBLE) && event.data.hitboxStats.flinch) {
-        var xVel = victim.getXKnockback();
-        var yVel = victim.getYKnockback();
+    var stats = event.data.hitboxStats;
+    if (finishZoomCheck(victim, stats)) {
+        applyKillSpark(0, victim, Math.getAngleFromVelocity(victim.getXKnockback(), victim.getYKnockback()), 1.5, victim);
+        event.data.hitboxStats.hitstop = stats.hitstop + 10;
+        event.data.hitboxStats.selfHitstop = stats.selfHitstop + 10;
+        var duration = stats.selfHitstop + 10;
 
-        var airTime = victim.getHitstun();
-        // External Forces besides knockback
-        var airFriction = victim.getGameObjectStat("aerialFriction");
-        var gravity = victim.getGameObjectStat("gravity");
-
-
-        var kbComponents = { x: xVel, y: yVel };
-        var boundDistance: { x: Int, y: Int } = distanceFromDeathBounds(victim, kbComponents);
-        var xDistance: Float = Math.abs(xVel * airTime) + 0.5 * (-airFriction * Math.pow(airTime, 2));
-        var yDistance: Float =  if (kbComponents.y >= 0) {
-            // "Calculating launch height using kinematic equations.");
-            Math.abs((Math.abs(yVel) * airTime) + 0.5 * (gravity * Math.pow(airTime, 2)));
-        } else {
-            // "Calculating launch height using projectile motion formula.");
-            Math.abs(Math.pow(yVel, 2) / (2.2 * (gravity)));
-        };
-
-        var distanceComponents = { x: xDistance, y: yDistance };
-        var stats = event.data.hitboxStats;
-        var angle = stats.angle;
-        var autoLinkAngles = [SpecialAngle.AUTOLINK_STRONGER, SpecialAngle.AUTOLINK_STRONGEST, SpecialAngle.AUTOLINK_WEAK];
-        if (autoLinkAngles.indexOf(stats.rawAngle) < 0 && (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1))) {
-            applyKillSpark(0, victim, Math.getAngleFromVelocity(xVel, yVel), 1.5, victim);
-            event.data.hitboxStats.hitstop = event.data.hitboxStats.hitstop + 10;
-            event.data.hitboxStats.selfHitstop = event.data.hitboxStats.selfHitstop + 10;
-            var duration = stats.selfHitstop + 10;
-
-            // Training Mode or Last Stock
-            if (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives" || gameEndingStock(victim)) {
-                zoomInOnPlayer(event.data.self, duration + 35);
-                if (event.data.foe != null) {
-                    event.data.foe.forceStartHitstop(stats.hitstop + 35, true);
-                }
-                event.data.self.forceStartHitstop(stats.selfHitstop + 35, true);
-                darkenScreen(duration + 35, 12);
-                slowMotion(duration + 35, true);
-                AudioClip.play(getContent("finishZoom"), { loop: false, volume: 0.38 });
-
-            } else { // Regular Kills
-                if (event.data.foe != null) {
-                    event.data.foe.forceStartHitstop(stats.hitstop + 20, true);
-                }
-                event.data.self.forceStartHitstop(stats.selfHitstop + 20, true);
-                darkenScreen(duration + 20, 12);
-                slowMotion(duration + 20, true);
-                AudioClip.play(getContent("finishZoom"), { loop: false, volume: 0.3 });
-
+        // Training Mode or Last Stock
+        if (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives" || gameEndingStock(victim)) {
+            zoomInOnPlayer(event.data.self, duration + 35);
+            if (event.data.foe != null) {
+                event.data.foe.forceStartHitstop(stats.hitstop + 35, true);
             }
+            event.data.self.forceStartHitstop(stats.selfHitstop + 35, true);
+            darkenScreen(duration + 35, 12);
+            slowMotion(duration + 35, true);
+            AudioClip.play(getContent("finishZoom"), { loop: false, volume: 0.38 });
+
+        } else { // Regular Kills
+            if (event.data.foe != null) {
+                event.data.foe.forceStartHitstop(stats.hitstop + 20, true);
+            }
+            event.data.self.forceStartHitstop(stats.selfHitstop + 20, true);
+            darkenScreen(duration + 20, 12);
+            slowMotion(duration + 20, true);
+            AudioClip.play(getContent("finishZoom"), { loop: false, volume: 0.3 });
+
         }
     }
 
+}
+
+function finishZoomCheck(victim: GameObject, stats: HitboxStats): Bool {
+    if (victim.hasBodyStatus(BodyStatus.INVINCIBLE) || !stats.flinch) {
+        return false;
+    }
+
+    var xVel = victim.getXKnockback();
+    var yVel = victim.getYKnockback();
+
+    var airTime = victim.getHitstun();
+    // External Forces besides knockback
+    var airFriction = victim.getGameObjectStat("aerialFriction");
+    var gravity = victim.getGameObjectStat("gravity");
+
+
+    var kbComponents = { x: xVel, y: yVel };
+    var boundDistance: { x: Int, y: Int } = distanceFromDeathBounds(victim, kbComponents);
+    var xDistance: Float = Math.abs(xVel * airTime) + 0.5 * (-airFriction * Math.pow(airTime, 2));
+    var yDistance: Float =  if (kbComponents.y >= 0) {
+        // "Calculating launch height using kinematic equations.");
+        Math.abs((Math.abs(yVel) * airTime) + 0.5 * (gravity * Math.pow(airTime, 2)));
+    } else {
+        // "Calculating launch height using projectile motion formula.");
+        Math.abs(Math.pow(yVel, 2) / (2.2 * (gravity)));
+    };
+
+    var distanceComponents = { x: xDistance, y: yDistance };
+    var autoLinkAngles = [SpecialAngle.AUTOLINK_STRONGER, SpecialAngle.AUTOLINK_STRONGEST, SpecialAngle.AUTOLINK_WEAK];
+    if (autoLinkAngles.indexOf(stats.rawAngle) < 0 && (distanceComponents.x >= (boundDistance.x * 1.1) || distanceComponents.y > (boundDistance.y * 1.1))) {
+        return true;
+    }
+    return false;
 }
 
 function gameEndingStock(player: Character) {
@@ -1185,36 +1296,16 @@ function enableActions(player: Character) {
 
 
 function disableActions(player: Character) {
-    //obj.getStatusEffectByType(StatusEffectType.)
-    var disabledActions = [
-        CharacterActions.AERIAL_NEUTRAL,
-        CharacterActions.AERIAL_FORWARD,
-        CharacterActions.AERIAL_DOWN,
-        CharacterActions.AERIAL_BACK,
-        CharacterActions.AERIAL_UP,
-        CharacterActions.SPECIAL_UP,
-        CharacterActions.SPECIAL_DOWN,
-        CharacterActions.SPECIAL_SIDE,
-        CharacterActions.SPECIAL_NEUTRAL,
-        CharacterActions.STRONG_DOWN,
-        CharacterActions.STRONG_FORWARD,
-        CharacterActions.STRONG_UP,
-        CharacterActions.JAB,
-        CharacterActions.TILT_FORWARD,
-        CharacterActions.TILT_DOWN,
-        CharacterActions.TILT_UP
-    ];
-
-    Engine.forEach(disabledActions, function (action: Int, _idx: Int) {
+    Engine.forEach(allActions, function (action: Int, _idx: Int) {
         player.addStatusEffect(StatusEffectType.DISABLE_ACTION, action, { tag: STATUS_TAG });
         return true;
     }, []);
 }
 
 
-function createAfterImage(obj: GameObject, contentId: String, duration: Int, filter: Filter) {
+function createAfterImage(obj: GameObject, duration: Int, filter: Filter) {
     var vfx: Vfx = match.createVfx(new VfxStats({
-        spriteContent: contentId,
+        spriteContent: obj.getGameObjectStat("spriteContent"),
         animation: obj.getAnimation(),
         fadeOut: true,
         resizeWith: true,
@@ -1225,242 +1316,82 @@ function createAfterImage(obj: GameObject, contentId: String, duration: Int, fil
     vfx.setX(obj.getX());
     vfx.setY(obj.getY());
     vfx.playFrame(obj.getCurrentFrame());
-    vfx.addFilter(filter);
+    if (filter != null) {
+        vfx.addFilter(filter);
+    }
+    var cSh = obj.getCostumeShader();
+    if (cSh != null) {
+        vfx.addShader(cSh);
+    }
     return vfx;
 }
 
 
 
 function defaultFinalSmash(player: Character) {
-    player.toState(CState.TILT_UP, "stand");
-    var groundFriction = player.getGameObjectStat("friction");
-    var aerialFriction = player.getGameObjectStat("aerialFriction");
-    // var match: Match;
-    var hitbox: Projectile = match.createProjectile(getContent("hitboxer"), player);
-    hitbox.setScaleY(player.getEcbCollisionBox().height);
-    player.toggleGravity(false);
-    player.updateGameObjectStats({ friction: 0, aerialFriction: 0 });
-    player.updateAnimationStats({ allowMovement: false });
-    player.setXSpeed(10);
-    player.setYSpeed(0);
-
-    player.addTimer(4, Math.floor(30 / 4), function () {
-        hitbox.reactivateHitboxes();
-        var vfx: Vfx = createAfterImage(player, player.getGameObjectStat("spriteContent"), 30, new HsbcColorFilter());
-        vfx.addShader(player.getCostumeShader());
-    }, {
-        persistent: true
-    });
-    function endDemon() {
-        player.updateGameObjectStats({ friction: groundFriction, aerialFriction: aerialFriction });
-        player.resetMomentum();
-        player.endAnimation();
-        player.setXSpeed(0);
-        if (!hitbox.isDisposed()) {
-            hitbox.destroy();
-        }
+    var duration = 3.5 * 60;
+    var port = player.getPlayerConfig().port;
+    if (!player.isOnFloor()) {
+        player.playAnimation("assist_call_air");
+    } else {
+        player.playAnimation("assist_call");
     }
 
+    var filter = new HsbcColorFilter();
+    filter.hue = -Math.toRadians(180);
+    filter.saturation = 1;
+    var objs = filterEverything(filter);
+    player.removeFilter(filter);
+    player.getDamageCounterContainer().removeFilter(filter);
 
-    hitbox.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
-        endDemon();
-        var foe: GameObject = event.data.foe;
-        if (foe.getType() == EntityType.CHARACTER && !(foe.hasBodyStatus(BodyStatus.INVINCIBLE) || foe.hasBodyStatus(BodyStatus.INVINCIBLE_GRABBABLE))) {
-
-
-            Engine.forEach(match.getPlayers(), function (p: Character) {
-                p.getDamageCounterContainer().alpha = 0;
-                return true;
-            }, []);
-
-            // player.updateCharacterStats({ ghost: true });
-            var ecb: CollisionBox = player.getEcbCollisionBox();
-            var attackSequence = [
-                // { animation: "jab1", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "tilt_down", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "tilt_forward", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "aerial_neutral", x: 0, y: 0 },
-                { animation: "aerial_forward", x: - player.flipX(ecb.width), y: 0 },
-                { animation: "strong_down_attack", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "strong_forward_attack", x: -player.flipX(ecb.width), y: 0 },
-                { animation: "", x: 0, y: 0 }
-            ];
-            var jabs = ["jab3", "jab2", "jab1"];
-            Engine.forEach(jabs, function (name: String, _idx: Int) {
-                if (player.hasAnimation(name)) {
-                    var newArr = [{ animation: name, x: -player.flipX(ecb.width), y: 0 }].concat(attackSequence);
-                    attackSequence = newArr;
-                }
-                return true;
-            }, []);
-
-
-
-
-            var speedLineVFX: Vfx = match.createVfx(new VfxStats({
-                spriteContent: getContent("vfx"),
-                animation: "speedline",
-                loop: true,
-                timeout: 999999,
-                x: 0,
-                y: 0,
-                scaleX: camera.getViewportWidth() / 480,
-                scaleY: camera.getViewportHeight() / 200,
-                layer: VfxLayer.FOREGROUND_FRONT,
-            }), null);
-
-
-
-
-            var attackerVfx: Vfx = match.createVfx(new VfxStats({
-                spriteContent: player.getGameObjectStat("spriteContent"),
-                animation: attackSequence[0].animation,
-                relativeWith: false,
-                loop: true,
-                timeout: 9999999,
-                resizeWith: true,
-                forceVisible: true,
-                x: -ecb.width + camera.getViewportWidth() / 2,
-                y: camera.getViewportHeight() / 2,
-                scaleX: player.getCharacterStat("baseScaleX"),
-                scaleY: player.getCharacterStat("baseScaleY"),
-                layer: VfxLayer.FOREGROUND_FRONT
-            }), null);
-
-            var defenderVfx: Vfx = match.createVfx(new VfxStats({
-                spriteContent: foe.getGameObjectStat("spriteContent"),
-                animation: "hurt_light_middle",
-                relativeWith: false,
-                loop: false,
-                timeout: 999999999,
-                resizeWith: true,
-                x: 10 + camera.getViewportWidth() / 2,
-                y: camera.getViewportHeight() / 2,
-                scaleX: foe.getCharacterStat("baseScaleX"),
-                scaleY: foe.getCharacterStat("baseScaleY"),
-                layer: VfxLayer.FOREGROUND_FRONT
-            }), null);
-
-            var facingLeft = player.isFacingLeft();
-            if (facingLeft) {
-                attackerVfx.flip();
-                defenderVfx.flip();
-                speedLineVFX.flip();
-                speedLineVFX.setX(camera.getViewportWidth());
-                var temp = attackerVfx.getX();
-                attackerVfx.setX(defenderVfx.getX());
-                defenderVfx.setX(temp);
-            }
-
-            attackerVfx.addShader(player.getCostumeShader());
-            defenderVfx.addShader(foe.getCostumeShader());
-            var shader: RgbaColorShader = createColorShader(player.getPortColor());
-            speedLineVFX.addShader(shader);
-            defenderVfx.flip();
-            var container = camera.getForegroundContainer();
-            container.addChild(speedLineVFX.getViewRootContainer());
-            container.addChild(defenderVfx.getViewRootContainer());
-            container.addChild(attackerVfx.getViewRootContainer());
-
-
-
-
-            var initialX = defenderVfx.getX();
-            var initialY = defenderVfx.getY();
-
-
-            player.setAlpha(0);
-            foe.setAlpha(0);
-
-
-            var totalLength = 0;
-            var timerTotals = [];
-            var xOffset = 0;
-            var yOffset = 0;
-            var hitVfxs: Array<Vfx> = [];
-            Engine.forCount(attackSequence.length, function (idx: Int) {
-                Engine.log(attackSequence);
-                var hitVfx: Vfx = match.createVfx(new VfxStats({
-                    spriteContent: "global::vfx.vfx",
-                    animation: GlobalVfx.MEDIUM_NORMAL_HIT,
-                    x: defenderVfx.getX(),
-                    y: defenderVfx.getY() - (defenderVfx.getSprite().height / 2),
-                    scaleX: defenderVfx.getScaleX(),
-                    scaleY: defenderVfx.getScaleY()
-                }), null);
-                hitVfx.pause();
-                hitVfx.setAlpha(0);
-                hitVfxs.push(hitVfx);
-                return true;
-            }, []);
-
-            Engine.forEach(attackSequence, function (attack: { animation: String, x: Float, y: Float }, idx: Int) {
-                attackerVfx.playAnimation(attack.animation);
-                totalLength += attackerVfx.getTotalFrames();
-                timerTotals.push(totalLength);
-                attackerVfx.addTimer(timerTotals[idx], 1, function () {
-                    xOffset = attack.x * player.getCharacterStat("baseScaleX");
-                    yOffset = attack.y * player.getCharacterStat("baseScaleY");
-                    attackerVfx.playAnimation(attack.animation);
-                    attackerVfx.setX(initialX + attack.x);
-                    attackerVfx.setY(initialY + attack.y);
-                    Engine.log(attack);
-
-                    attackerVfx.addTimer(Math.floor(attackerVfx.getTotalFrames() * (2 / 3)), 1, function () {
-                        defenderVfx.playAnimation("hurt_light_middle");
-                        AudioClip.play(GlobalSfx.HIT_HEAVY);
-                        var vfx = hitVfxs[idx];
-                        container.addChild(vfx.getViewRootContainer());
-                        vfx.resume();
-                        vfx.setAlpha(1);
-                    }, { persistent: true });
-                }, { persistent: true });
-                return true;
-            }, []);
-            // totalLength -= vfx.getTotalFrames();
-            foe.forceStartHitstop();
-            var totalTime = timerTotals[timerTotals.length - 1];
-            match.freezeScreen(totalTime, [attackerVfx, defenderVfx, speedLineVFX].concat(hitVfxs));
-
-            // zoomInOnPlayer(player, timerTotals[timerTotals.length - 1]);
-            var curr = 0;
-            player.addTimer(1, 1, function () {
-                // Engine.log(curr);
-                player.setAlpha(1);
-                foe.setAlpha(1);
-                speedLineVFX.destroy();
-                attackerVfx.destroy();
-                defenderVfx.destroy();
-                Engine.forEach(hitVfxs, function (vfx: Vfx, idx: Int) {
-                    vfx.destroy();
-                    return true;
-                }, []);
-                var angle = 45;
-                if (facingLeft) {
-                    angle += 90;
-                }
-                foe.takeHit(new HitboxStats({
-                    damage: 40,
-                    flinch: true,
-                    baseKnockback: 50,
-                    knockbackGrowth: 50,
-                    angle: angle,
-                    hitstun: -1,
-                    hitstop: -1
-                }), null);
-
-                player.endAnimation();
-                Engine.forEach(match.getPlayers(), function (p: Character) {
-                    p.getDamageCounterContainer().alpha = 1;
-                    return true;
-                }, []);
-
-            }, { persistent: true });
+    var allowList = [player, self];
+    var aaTime = player.addTimer(3, -1, function () {
+        for (item in allowList) {
+            if (item.isDisposed()) { allowList.remove(item); }
         }
+        match.freezeScreen(1, allowList);
+        var aa = createAfterImage(player, 10, null);
+        aa.setAlpha(0.4);
     }, { persistent: true });
-    player.addTimer(30, 1, endDemon, { persistent: true });
-}
+    function projectileCreated(e: GameObjectEvent) {
+        allowList.push(e.data.other);
+    }
+    player.addEventListener(GameObjectEvent.PROJECTILE_CREATED, projectileCreated, { persistent: true });
 
+    var port = player.getPlayerConfig().port;
+    globalController.exports.data.finalSmashForm[port] = true;
+    var outerGlow = new GlowFilter();
+    outerGlow.color = 0x0e0e0e;
+    var innerGlow = new GlowFilter();
+    innerGlow.color = 0xFFFFFF;
+
+    player.addFilter(innerGlow);
+    player.addFilter(outerGlow);
+
+    var curr = 0;
+    var mult = 1;
+    var uid = player.addTimer(1, duration, function () {
+        globalController.exports.data.meters[port].sprite.currentFrame = 0;
+        if (!player.inState(CState.HELD)) { player.updateAnimationStats({ bodyStatusStrength: 10 }); }
+        if (curr % 20 == 0) { mult = mult * -1; }
+        outerGlow.alpha -= 0.05 * (mult);
+        innerGlow.alpha += 0.05 * (mult);
+        curr++;
+    }, { persistent: true });
+
+
+    var removeBuff = function () {
+        globalController.exports.data.finalSmashForm[port] = false;
+        player.removeTimer(aaTime);
+        player.removeTimer(uid);
+        player.removeFilter(outerGlow);
+        player.removeFilter(innerGlow);
+        removeFilters(objs, filter);
+    }
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, removeBuff, { persistent: true });
+    player.addEventListener(CharacterEvent.KNOCK_OUT, removeBuff, { persistent: true });
+    player.addTimer(duration, 1, removeBuff, { persistent: true });
+}
 
 
 function performFinalSmash(player: Character) {
@@ -1484,30 +1415,18 @@ function performFinalSmash(player: Character) {
 
 
 
-function greyScaleEverything() {
-    var gs = function () {
-        var filter: HsbcColorFilter = new HsbcColorFilter();
-        filter.saturation = -1;
-        return filter;
-    }
+function filterEverything(filter: Filter) {
     var containers = camera.getBackgroundContainers(); // might as well set it to this in adcance
     containers = containers.concat([
         // Camera Stuff
         camera.getBackgroundContainer(),
         camera.getForegroundContainer(),
 
-        // Characters
-        stage.getCharactersBackContainer(),
-        stage.getCharactersContainer(),
-        stage.getCharactersFrontContainer(),
-
         // Effects
         stage.getBackgroundBehindContainer(),
         stage.getBackgroundEffectsContainer(),
         stage.getBackgroundShadowsContainer(),
         stage.getBackgroundStructuresContainer(),
-        stage.getCharactersBackContainer(),
-        stage.getCharactersContainer(),
         stage.getCharactersFrontContainer(),
         stage.getForegroundEffectsContainer(),
         stage.getForegroundFrontContainer(),
@@ -1536,6 +1455,7 @@ function greyScaleEverything() {
 
     Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
         containers.push(player.getDamageCounterContainer());
+        containers.push(player);
         return true;
     }, []);
 
@@ -1543,9 +1463,7 @@ function greyScaleEverything() {
 
     Engine.forEach(containers, function (container: DisplayObject, _idx: Int) {
         if (container != null) {
-            var filter = gs();
             container.addFilter(filter);
-            container.alpha = 0.3;
             containerObjs.push({ item: container, filter: filter });
         }
         return true;
@@ -1560,12 +1478,12 @@ function removeFilters(objs: Array<{ item: DisplayObject, filter: HsbcColorFilte
     }, []);
 }
 
-function greyScaleEverythingTimed(duration: Int) {
-    var objs = greyScaleEverything();
-    var removeGreyScale = function () {
+function filterEverythingTimer(duration: Int, filter: Filter) {
+    var objs = filterEverything(filter);
+    var undo = function () {
         removeFilters(objs);
     };
-    self.addTimer(duration, 1, removeGreyScale, { duration: true });
+    self.addTimer(duration, 1, undo, { duration: true });
 }
 
 function clearSprites(textSprites: Array<Sprite>) {
@@ -1577,7 +1495,7 @@ function clearSprites(textSprites: Array<Sprite>) {
 
 }
 
-function enterDizzy(player: Character) {
+function enterDizzy(player: Character, callback) {
     player.takeHit(new HitboxStats({ damage: 0, baseKnockback: 80, hitstun: 60 * 1, angle: 90, reflectable: false, absorbable: false, shieldable: false, directionalInfluence: false, tumbleType: TumbleType.ALWAYS }));
 
     var breakStatus = player.applyGlobalBodyStatus(BodyStatus.INVINCIBLE, 60);
@@ -1589,8 +1507,7 @@ function enterDizzy(player: Character) {
             stunVfx.kill();
             stunVfx = null;
             leftShieldStun = true;
-            f(settings.resetValue);
-
+            callback();
         }
     };
 
@@ -1704,7 +1621,7 @@ function playerParryListener(event: GameObjectEvent) {
     onParriedReceiverEnd(defender, attacker, event.data.hitboxStats);
 }
 
-function createShield(player: Character, version: Int) {
+function createShield(player: Character, variant: Int) {
     player.updateCharacterStats({
         shieldBackXOffset: 10000000,
         shieldBackYOffset: 10000000,
@@ -1721,37 +1638,49 @@ function createShield(player: Character, version: Int) {
         depleteRate: 0.0625,
         regenRate: 0.1,
         resetValue: 30,
-        timeTodrop: 3,
+        timeTodrop: 3
     };
     var ultimatePreset = {
 
         hp: 50,
         damageFormula: function (damage: Float) {
-            var shieldDamage = Math.ceil(damage / 3);
+            var shieldDamage = Math.ceil(damage * 0.5);
             return shieldDamage;
         },
         depleteRate: 0.15,
         regenRate: 0.08,
         resetValue: 37.5,
-        timeTodrop: 3,
+        timeTodrop: 3
+    };
+
+    var meleePreset = {
+        hp: 60,
+        damageFormula: function (damage: Float) {
+            var shieldDamage = Math.ceil(damage * 0.7);
+            return shieldDamage;
+        },
+        depleteRate: 0.0625,
+        regenRate: 0.1,
+        resetValue: 30,
+        timeTodrop: 8
     };
 
 
     var settings: {
-        hp: number;
-        damageFormula: Function;
-        depleteRate: number;
-        regenRate: number;
-        resetValue: number;
-        timeTodrop: number;
+        hp: number,
+        damageFormula: Function,
+        depleteRate: number,
+        regenRate: number,
+        resetValue: number,
+        timeTodrop: number
     } = {};
-    switch (version) {
-        case SMASH64_MODE:
+    switch (variant) {
+        case SMASH64_VARIANT:
             settings = smash64Preset;
-        case ULTIMATE_MODE:
+        case ULTIMATE_VARIANT:
             settings = ultimatePreset;
         default:
-            settings = ultimatePreset;
+            settings = meleePreset;
     }
 
     var shader: RgbaColorShader = createColorShader(player.getPortColor());
@@ -1806,6 +1735,7 @@ function createShield(player: Character, version: Int) {
     function getLevel() { return currentHP; }
 
     function getTimeToDrop() { return dropTime; }
+    function reset() { currentHP = settings.resetValue; }
 
 
     var updateTimer = shield.addTimer(1, -1, function () {
@@ -1840,13 +1770,14 @@ function createShield(player: Character, version: Int) {
         }
 
         if (getLevel() == 0) {
-            enterDizzy(player);
+            enterDizzy(player, reset);
         }
     }, { persistent: true });
 
     timers.push(updateTimer);
 
     var parryStatus: BodyStatusTimer = null;
+
 
     function onStateChange(event: EntityEvent) {
         var toState = event.data.toState;
@@ -1866,7 +1797,7 @@ function createShield(player: Character, version: Int) {
             forceShield = true;
         }
 
-        if (version == ULTIMATE_MODE) {
+        if (variant == ULTIMATE_VARIANT) {
             if (fromState == CState.SHIELD_OUT && parryStatus != null) { parryStatus.finish(); }
 
             if (getTimeToDrop() == 0 && toState == CState.SHIELD_OUT) {
@@ -1884,7 +1815,7 @@ function createShield(player: Character, version: Int) {
     function onShieldHit(event: GameObjectEvent) {
         var stats = event.data.hitboxStats;
         if (stats.flinch && stats.damage > 0) {
-            shrink(settings.damageFormula(stats.damage));
+            shrink(settings.damageFormula(stats.damage) * stats.shieldDamageMultiplier);
         }
         if (event.data.foe.getX() > player.getX() && player.isFacingLeft()) {
             player.setXKnockback(-player.getXKnockback());
@@ -1901,7 +1832,7 @@ function createShield(player: Character, version: Int) {
     player.addEventListener(EntityEvent.STATE_CHANGE, onStateChange, { persistent: true });
     player.addEventListener(GameObjectEvent.SHIELD_HIT_RECEIVED, onShieldHit, { persistent: true });
 
-    if (version == ULTIMATE_MODE) {
+    if (variant == ULTIMATE_VARIANT) {
         events.push([GameObjectEvent.HIT_RECEIVED, onParriedProjectile]);
         events.push([GameObjectEvent.HITBOX_CONNECTED, playerParryListener]);
         player.addEventListener(GameObjectEvent.HIT_RECEIVED, onParriedProjectile, { persistent: true });
@@ -1922,80 +1853,6 @@ function createShield(player: Character, version: Int) {
     }
 }
 
-function uniAssault(player: Character) {
-    var held = player.getHeldControls();
-    var pressed = player.getPressedControls();
-    var left = held.LEFT || pressed.LEFT;
-    var right = held.RIGHT || pressed.RIGHT;
-    var up = held.UP || pressed.UP;
-    var down = held.DOWN || pressed.DOWN;
-    var cAirDash = !(held.hasRightStickAttackFlag() || held.hasRightStickAttackFlag());
-    if (cAirDash) {
-        left = left || held.RIGHT_STICK_LEFT || pressed.RIGHT_STICK_LEFT;
-        right = right || held.RIGHT_STICK_RIGHT || pressed.RIGHT_STICK_RIGHT;
-        up = up || held.RIGHT_STICK_UP || pressed.RIGHT_STICK_UP;
-        down = down || held.RIGHT_STICK_DOWN || pressed.RIGHT_STICK_DOWN;
-    }
-
-    var initialXVelocity = 10; // this should always be positive
-    var initialYVelocity = -10; // this should always be negative
-    var airdashAnim = "emote";
-
-    if (left) {
-        if (player.isFacingLeft()) {
-            player.toState(CState.EMOTE, "uniAssaultForward");
-        } else {
-            // self.toState(CState.EMOTE, "uniAssaultBackward");
-        }
-        player.toState(CState.EMOTE, airdashAnim);
-
-        player.setXVelocity(-initialXVelocity);
-        player.setYVelocity(initialYVelocity);
-    } else if (right) {
-        if (player.isFacingRight()) {
-            // self.toState(CState.EMOTE, "uniAssaultForward");
-        } else {
-            // self.toState(CState.EMOTE, "uniAssaultBackward");
-        }
-        player.toState(CState.EMOTE, airdashAnim);
-
-
-        player.setXVelocity(initialXVelocity);
-        player.setYVelocity(initialYVelocity);
-
-    } else {
-        player.toState(CState.EMOTE, airdashAnim);
-
-        // self.toState(CState.EMOTE, "uniAssaultForward");
-        player.setXVelocity(player.flipX(initialXVelocity));
-        player.setYVelocity(initialYVelocity);
-    }
-    player.updateAnimationStats({ interruptible: true });
-    player.addEventListener(EntityEvent.STATE_CHANGE, function cancelAirdash(e: EntityEvent) {
-        player.removeEventListener(EntityEvent.STATE_CHANGE, cancelAirdash);
-        var toState = e.data.toState;
-        if (toState == CState.AIRDASH_INITIAL) {
-            player.addEventListener(EntityEvent.STATE_CHANGE, cancelAirdash, { persistent: true });
-        }
-
-        function onWhiff() {
-            player.removeEventListener(EntityEvent.STATE_CHANGE, onWhiff);
-            player.toState(CState.FALL_SPECIAL);
-        }
-
-        function onHit(e2: GameObjectEvent) {
-            var foe = e2.data.foe;
-            if (foe.hasBodyStatus(BodyStatus.INVINCIBLE) || foe.hasBodyStatus(BodyStatus.INVINCIBLE_GRABBABLE)) {
-                return;
-            }
-            player.removeEventListener(EntityEvent.STATE_CHANGE, onWhiff);
-        }
-        player.addEventListener(GameObjectEvent.HIT_DEALT, onHit);
-        player.addEventListener(EntityEvent.STATE_CHANGE, onWhiff, { persistent: true });
-
-
-    }, { persistent: true });
-}
 
 function getAirDodgeAngle(player: Character, speed: Int) {
     var held = player.getHeldControls();
@@ -2041,14 +1898,18 @@ function getAirDodgeAngle(player: Character, speed: Int) {
 
 
 
-function ultimateModeOnStateChange(e: EntityEvent) {
-    var toState = event.data.toState;
-    var fromState = event.data.fromState;
-    switch (toState) {
-        case CState.AIRDASH_INITIAL:
-            performAirdodge(player, ULTIMATE_MODE);
-        case CState.PARRY_IN:
-            player.toState(CState.SHIELD_HURT, "shield_loop");
+
+function ultimateModeOnStateChange(player: Character) {
+    return function (e: EntityEvent) {
+        var toState = e.data.toState;
+        var fromState = e.data.fromState;
+        switch (toState) {
+            case CState.AIRDASH_INITIAL:
+                performAirdodge(player, ULTIMATE_VARIANT);
+            case CState.PARRY_IN:
+                player.toState(CState.SHIELD_HURT, "shield_loop");
+        }
+
     }
 }
 
@@ -2061,9 +1922,9 @@ function ultimateMode(player: Character): void {
     // player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
     player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
 
-    var shield = createShield(player, ULTIMATE_MODE);
+    var shield = createShield(player, ULTIMATE_VARIANT);
 
-    player.addEventListener(EntityEvent.STATE_CHANGE, ultimateModeOnStateChange, { persistent: true });
+    player.addEventListener(EntityEvent.STATE_CHANGE, ultimateModeOnStateChange(player), { persistent: true });
     player.addEventListener(GameObjectEvent.HIT_RECEIVED, finishZoom, { persistent: true });
 
 
@@ -2181,7 +2042,7 @@ function smash64Mode(player: Character) {
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_UP);
     player.updateCharacterStats({ airdashLimit: 0 });
 
-    var shield = createShield(player, SMASH64_MODE);
+    var shield = createShield(player, SMASH64_VARIANT);
 
 
     player.addTimer(1, -1, function () {
@@ -2209,11 +2070,6 @@ function smash64Mode(player: Character) {
         event.data.hitboxStats.directionalInfluence = false;
         event.data.hitboxStats.hitstopNudgeMultiplier = 2;
         event.data.hitboxStats.shieldstunMultiplier = 5;
-
-
-
-
-
     }, { persistent: true });
 }
 
@@ -2228,6 +2084,7 @@ function enableSmash64() {
 
 function releaseCoinsEvent(event: GameObjectEvent) {
     var damage = event.data.hitboxStats.damage;
+
     var target = event.data.self;
     if (event.data.foe.exports.coin == null
         && damage >= 0 && !target.hasBodyStatus(BodyStatus.INTANGIBLE)
@@ -2240,21 +2097,17 @@ function releaseCoinsEvent(event: GameObjectEvent) {
 function getCoins(player: Character) {
     var port = player.getPlayerConfig().port;
     return globalController.exports.data.coins[port];
-
 }
 
 function setCoins(player: Character, coins: Int) {
     var port = player.getPlayerConfig().port;
-    globalController.exports.data.coins[port] = Math.round(coins);
+    globalController.exports.data.coins[port] = Math.min(9999, Math.max(0, Math.floor(coins)));
     var coinSprites = globalController.exports.data.coinSprites[port];
-    refreshCoins(coinSprites, newCoins);
+    refreshCoins(coinSprites, getCoins(player));
 
 }
 function addCoins(player: Character, coins: Int) {
-    var port = player.getPlayerConfig().port;
-    globalController.exports.data.coins[port] += coins;
-    var coinSprites = globalController.exports.data.coinSprites[port];
-    refreshCoins(coinSprites, newCoins);
+    setCoins(player, getCoins(player) + coins);
 }
 
 function coinMode(player: Character) {
@@ -2274,6 +2127,7 @@ function coinMode(player: Character) {
 
 function releaseCoins(player: Character, damage: Int) {
     var coinResource = getContent("coinProj");
+    addCoins(player, -damage);
     var remaining: Int = damage;
     var numGold = Math.floor(remaining / 10);
     remaining -= (numGold * 10);
@@ -2286,11 +2140,7 @@ function releaseCoins(player: Character, damage: Int) {
             if (event.data.foe.getType() == EntityType.CHARACTER) {
                 var foe: Character = event.data.foe;
                 var foePort = foe.getPlayerConfig().port;
-                globalController.exports.data.coins[foePort] += Math.round(damage);
-                addCoins(player, damage);
-                if (getCoins(foe) >= 9999) {
-                    setCoins(foe, 9999);
-                }
+                addCoins(foe, Math.min(damage, 9999));
                 event.data.self.destroy();
             }
         };
@@ -2340,7 +2190,11 @@ function setupCoins(player: Character) {
         var sprite: Sprite = Sprite.create(resource);
         sprite.currentFrame = 1;
         sprite.x = sprite.x + 32 + (16 * curr);
-        sprite.y = sprite.y - 16;
+        if (GraphicsSettings.damageHudPosition == "top") {
+            sprite.y = sprite.y + 64;
+        } else {
+            sprite.y = sprite.y - 16;
+        }
         container.addChild(sprite);
         sprites.push(sprite);
         curr++;
@@ -2481,8 +2335,7 @@ function enableCoins() {
                         }, { persistent: true });
                         foe.setLives(1);
                         foe.addTimer(20, 5, function () {
-                            foe.setX(99999);
-                            foe.setY(99999);
+                            foe.toState(CState.KO);
                         }, { persistent: true });
                         return true;
                     }, []);
@@ -2493,8 +2346,7 @@ function enableCoins() {
                         player.setLives(1);
                         player.addTimer(1, 20, function () {
                             if (winners.indexOf(player) < 0) {
-                                player.setX(99999);
-                                player.setY(99999);
+                                player.toState(CState.KO);
                             }
                         }, { persistent: true });
                         return true;
@@ -2514,7 +2366,6 @@ function enableCoins() {
                                 player.setDamage(300);
                                 player.validateHit({});
                             }
-
                         }, { persistent: true });
                         return true;
                     }, []);
@@ -2523,7 +2374,6 @@ function enableCoins() {
                         projectile.kill();
                         return true;
                     }, []);
-
                 }
             }
 
@@ -2882,7 +2732,12 @@ function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset:
         sprite.addFilter(filter);
         sprite.currentAnimation = animation;
         sprite.x = 500 + (baseOffset) * (1 + pos);
-        sprite.y = 32 + yOffset;
+        if (GraphicsSettings.damageHudPosition == "top") {
+            // Make Top HUD specific changes here
+            sprite.y = 330 + yOffset;
+        } else {
+            sprite.y = 32 + yOffset;
+        }
         sprite.scaleX = 1;
         sprite.scaleY = 1;
         sprite.currentFrame = frame;
@@ -3380,9 +3235,6 @@ function runMission(mission: { displayString: Array<String>, duration: Int, miss
 }
 
 
-
-
-
 function enableMissionMode() {
     globalController.exports.data = {
         missionStatus: [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING],
@@ -3463,3 +3315,32 @@ function enableMissionMode() {
     }, { persistent: true });
 
 }
+
+
+function directionToAerial(player: Character) {
+    var held = player.getHeldControls();
+    var forward = (held.LEFT && player.isFacingLeft()) || (held.RIGHT && player.isFacingRight());
+    var backward = (held.RIGHT && player.isFacingLeft()) || (held.LEFT && player.isFacingRight());
+    var up = held.UP;
+    var down = held.DOWN;
+
+    if (held.hasRightStickAttackFlag()) {
+        forward = forward || (held.RIGHT_STICK_LEFT && player.isFacingLeft()) || (held.RIGHT_STICK_RIGHT && player.isFacingRight());
+        backward = backward || (held.RIGHT_STICK_RIGHT && player.isFacingLeft()) || (held.RIGHT_STICK_LEFT && player.isFacingRight());
+        up = up || held.RIGHT_STICK_UP;
+        down = down || held.RIGHT_STICK_DOWN;
+    }
+
+    if (up) {
+        player.toState(CState.AERIAL_UP);
+    } else if (down) {
+        player.toState(CState.AERIAL_DOWN);
+    } else if (forward) {
+        player.toState(CState.AERIAL_FORWARD);
+    } else if (backward) {
+        player.toState(CState.AERIAL_BACK);
+    } else {
+        player.toState(CState.AERIAL_NEUTRAL);
+    }
+}
+
