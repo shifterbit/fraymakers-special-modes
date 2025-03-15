@@ -103,8 +103,7 @@ Smash Ultimate, But in Fraymakers kinda
   - Adds a special hit effect if a move is likely to kill(It does not account for DI or obstacles)
   - Zooms in to the player if the move is going to be the one that ends the match.
 - Round Shields
-  - Smash Ultimate Style Parries
+  - Replace Fray Parries with Smash Ultimate Style Parries
   - Increased Shieldstun
-- No Fray Parries
 
 

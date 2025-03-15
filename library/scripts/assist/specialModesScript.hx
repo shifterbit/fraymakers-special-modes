@@ -28,6 +28,10 @@ var SMASH64_VARIANT = 2;
 var state: ApiVarObject = self.makeObject({
     players: [{}, {}, {}, {}]
 });
+var noShielders = [
+    "cc_3040908417::SSF2DK.SSF2DK"
+];
+
 
 var allActions = [
     CharacterActions.AERIAL_NEUTRAL,
@@ -55,68 +59,9 @@ var allActions = [
     CharacterActions.LEDGE_ATTACK,
 ];
 
-function getState(): {
-    players: Array<{ port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int, damage: Float, jumps: Int }>
-} {
-    return state.get();
-}
 
 
-function setState(newState: {
-    players: Array<{ port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int }>
-}) {
-    state.set(newState);
-}
 
-function getPlayerState(player: Character): { port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int, damage: Float, doubleJumpCount: Int, facingRight: Bool, x: Float, y: Float } {
-    return {
-        port: player.getPlayerConfig().port,
-        animation: player.getAnimation(),
-        frame: player.getCurrentFrame(),
-        state: player.getState(),
-        xKnocback: player.getXKnockback(),
-        yKnockback: player.getYKnockback(),
-        xVelocity: player.getXVelocity(),
-        yVelocity: player.getYVelocity(),
-        hitstop: player.getHitstop(),
-        hitstun: player.getHitstun(),
-        damage: player.getDamage(),
-        doubleJumpCount: player.getDoubleJumpCount(),
-        facingRight: player.isFacingRight(),
-        x: player.getX(),
-        y: player.getY(),
-    }
-}
-
-function setPlayerState(player: Character, stateData: { port: Int, animation: String, state: Int, frame: Int, xVelocity: FLoat, yVelocity: Float, xKnocback: Float, yKnockback: Float, hitstop: Int, hitstun: Int, damage: Float, doubleJumpCount: Int, facingRight: Bool, x: Float, y: Float }) {
-    player.setY(stateData.y);
-    player.setX(stateData.x);
-
-    player.setYVelocity(stateData.yVelocity);
-    player.setXVelocity(stateData.xVelocity);
-
-    player.setYKnockback(stateData.yKnockback);
-    player.setXKnockback(stateData.xKnocback);
-
-    player.setState(stateData.state);
-    player.playAnimation(stateData.animation);
-    player.playFrame(stateData.frame);
-
-    player.forceStartHitstop(stateData.hitstop);
-    player.forceStartHitstun(stateData.hitstun);
-
-    player.setDoubleJumpCount(stateData.doubleJumpCount);
-    player.setDamage(stateData.damage);
-    if (stateData.facingRight) {
-        player.faceRight();
-    } else {
-        player.faceLeft();
-    }
-
-    player.setState(stateData.state);
-    player.setState(stateData.state);
-    player.setState(stateData.state);
-}
 
 
 
@@ -202,6 +147,16 @@ function parseStringArray(arr: Array<String>) {
         pow--;
     }
     return total;
+}
+
+function genericDispose(obj: GameObject, timers: Array<Int>, events: Array<Array<Any>>) {
+    for (timer in timers) {
+        obj.removeTimer(timer);
+    }
+
+    for (event in events) {
+        obj.removeEventListener(event[0], event[1]);
+    }
 }
 
 
@@ -471,19 +426,28 @@ function customComboMode(player: Character, duration: Int) {
     return remove;
 }
 
-function turbo(event: GameObjectEvent) {
-    var p: Character = event.data.self;
-    p.updateAnimationStats({ interruptible: true });
+function turbo(player: Character) {
+    function hitDealt() {
+        player.updateAnimationStats({ interruptible: true });
+
+    }
+    player.addEventListener(GameObjectEvent.HIT_DEALT, hitDealt, { persistent: true });
+    events = [[GameObjectEvent.HIT_DEALT, hitDealt]];
+
+
     // p.addEventListener(EntityEvent.STATE_CHANGE, function change() {
     //     p.removeEventListener(EntityEvent.STATE_CHANGE,change);
 
     // }, {persistent: true});
+    return {
+        dispose: function () { genericDispose(player, [], events); }
+    }
 }
 
 function enableTurboMode() {
     var players = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
-        player.addEventListener(GameObjectEvent.HIT_DEALT, turbo, { persistent: true });
+        turbo(player);
         return true;
     }, []);
 }
@@ -594,15 +558,26 @@ function increaseHitStop(event: GameObjectEvent) {
     event.data.hitboxStats.selfHitstopOffset = 10;
 }
 function dramatic(obj: GameObject) {
-    obj.addEventListener(GameObjectEvent.PROJECTILE_CREATED, function (e: GameObjectEvent) {
-        dramatic(e.data.other);
-    }, { persistent: true });
-    obj.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+    var events = [];
+    var timers = [];
+    function hitDealt(event: GameObjectEvent) {
         var stats = event.data.hitboxStats;
         zoomInOnPlayer(event.data.foe, stats.selfHitstop);
         slowMotion(stats.selfHitstop, false);
-    }, { persistent: true });
+    }
+    function projectileCreated(e: GameObjectEvent) {
+        dramatic(e.data.other);
+    }
+    obj.addEventListener(GameObjectEvent.PROJECTILE_CREATED, projectileCreated, { persistent: true });
+    obj.addEventListener(GameObjectEvent.HIT_DEALT, hitDealt, { persistent: true });
     obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, increaseHitStop, { persistent: true });
+    events.push([GameObjectEvent.PROJECTILE_CREATED, projectileCreated]);
+    events.push([GameObjectEvent.HIT_DEALT, hitDealt]);
+    events.push([GameObjectEvent.HITBOX_CONNECTED, increaseHitStop]);
+
+    return {
+        dispose: function () { genericDispose(obj, timers, events); }
+    }
 }
 
 function enableDramaticMode() {
@@ -621,11 +596,13 @@ function willCrit() {
 
 
 function criticalHit(obj: GameObject) {
+    var events = [];
+    var timers = [];
     var crit = false;
-    obj.addEventListener(GameObjectEvent.PROJECTILE_CREATED, function (e: GameObjectEvent) {
+    function projectileCreated(e: GameObjectEvent) {
         criticalHit(e.data.other);
-    }, { persistent: true });
-    obj.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+    }
+    function hitDealt(event: GameObjectEvent) {
         var stats = event.data.hitboxStats;
         if (!(event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE))
             && (crit
@@ -634,27 +611,38 @@ function criticalHit(obj: GameObject) {
             slowMotion(stats.selfHitstop, true);
             applyKillSpark(40, event.data.foe, stats.angle, 1, event.data.foe);
             darkenScreen(stats.selfHitstop + 15, 10);
-
         }
-    }, { persistent: true });
+    }
 
-    obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
+    function hitConnected(event: GameObjectEvent) {
         if (crit || (match.getMatchSettingsConfig().matchRules[0].contentId == "infinitelives")) {
             toCriticalHit(event);
         }
-    }, { persistent: true });
+    }
+    obj.addEventListener(GameObjectEvent.PROJECTILE_CREATED, projectileCreated, { persistent: true });
+    obj.addEventListener(GameObjectEvent.HIT_DEALT, hitDealt, { persistent: true });
+    obj.addEventListener(GameObjectEvent.HITBOX_CONNECTED, hitConnected, { persistent: true });
 
-    obj.addTimer(1, -1, function () {
+    events.push([GameObjectEvent.PROJECTILE_CREATED, projectileCreated]);
+    events.push([GameObjectEvent.HIT_DEALT, hitDealt]);
+    events.push([GameObjectEvent.HITBOX_CONNECTED, hitConnected]);
+
+
+    timers.push(obj.addTimer(1, -1, function () {
         crit = willCrit();
+    }, { persistent: true }));
 
-    }, { persistent: true });
-    return true;
+
+    return {
+        dispose: function () { genericDispose(obj, timers, events); }
+    }
 }
 
 function enableCriticalMode() {
     var players = match.getPlayers();
     Engine.forEach(players, function (player: Character, _idx: Int) {
         criticalHit(player);
+        return true;
     }, []);
 
 }
@@ -784,6 +772,7 @@ function ssf1Mode(player: Character) {
             || toState == CState.SHIELD_AIR
             || toState == CState.AIRDASH_INITIAL
             || toState == CState.GRAB
+            || toState == CState.PARRY_IN
             || toState == CState.STRONG_DOWN_IN
             || toState == CState.STRONG_FORWARD_IN
             || toState == CState.STRONG_UP_IN) {
@@ -1574,11 +1563,12 @@ function getScales(player: Character) {
     if (widthStatuses != null) {
         widthScale = widthScale * widthStatuses.getProduct();
     }
-    return {
+    var res = {
         width: widthScale * effectScale,
         height: heightScale * effectScale,
         base: effectScale
     };
+    return res;
 }
 
 function onParriedReceiverEnd(defender: Character, attacker: GameObject, stats: HitboxStats) {
@@ -1622,6 +1612,16 @@ function playerParryListener(event: GameObjectEvent) {
 }
 
 function createShield(player: Character, variant: Int) {
+    var spriteContent = player.getGameObjectStat("spriteContent");
+
+    if (noShielders.contains(spriteContent)) {
+        return {
+            dispose: function () { }
+        };
+    }
+    if (stage.exports.frayifitwasgood != null) {
+        return;
+    }
     player.updateCharacterStats({
         shieldBackXOffset: 10000000,
         shieldBackYOffset: 10000000,
@@ -1708,9 +1708,8 @@ function createShield(player: Character, variant: Int) {
         var widthScale = scale.width;
         var heightScale = scale.height;
         var effectScale = scale.base;
-        var ecb = player.getEcbCollisionBox();
-        var characterHeight = ecb.height * heightScale;
-        var characterWidth = ecb.width * widthScale;
+        var characterHeight = player.getSprite().height * heightScale;
+        var characterWidth = player.getSprite().width * widthScale;
         var characterSize = characterHeight > characterWidth ? characterHeight : characterWidth;
         var scale = effectScale * (characterSize * 1.3) / shieldHeight;
         shield.setScaleX((currentHP / settings.hp) * scale);
@@ -1838,18 +1837,9 @@ function createShield(player: Character, variant: Int) {
         player.addEventListener(GameObjectEvent.HIT_RECEIVED, onParriedProjectile, { persistent: true });
         player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, playerParryListener, { persistent: true });
     }
-    function dispose() {
-        for (event in events) {
-            player.removeEventListener(event[0], event[1]);
-        }
-
-        for (id in timers) {
-            player.removeTimer(id);
-        }
-    }
 
     return {
-        dispose: dispose
+        dispose: function () { genericDispose(player, timers, events); }
     }
 }
 
@@ -1905,7 +1895,9 @@ function ultimateModeOnStateChange(player: Character) {
         var fromState = e.data.fromState;
         switch (toState) {
             case CState.AIRDASH_INITIAL:
-                performAirdodge(player, ULTIMATE_VARIANT);
+                if (stage.exports.frayifitwasgood == null || noShielders.contains(player.getGameObjectStat("spriteContent"))) {
+                    performAirdodge(player, ULTIMATE_VARIANT);
+                }
             case CState.PARRY_IN:
                 player.toState(CState.SHIELD_HURT, "shield_loop");
         }
@@ -1916,21 +1908,37 @@ function ultimateModeOnStateChange(player: Character) {
 
 
 function ultimateMode(player: Character): void {
-    player.addEventListener(GameObjectEvent.LAND, enableAirActions(player), { persistent: true });
-
+    var finalSmash = activateFinalSmashMeter(player);
+    var timers = [];
+    var events = [];
+    function hitConnected(event: GameObjectEvent) {
+        event.data.hitboxStats.shieldstunMultiplier = 3;
+    }
     // Setup Shi
     // player.updateCharacterStats({ airdashInitialSpeed: 3, airdashSpeedCap: 6, airdashStartupLength: 1, airdashFullspeedLength: 30 });
     player.updateCharacterStats({ airdashTrailEffect: getContent("controller") });
 
+    var enableAir = enableActions(player);
     var shield = createShield(player, ULTIMATE_VARIANT);
-
-    player.addEventListener(EntityEvent.STATE_CHANGE, ultimateModeOnStateChange(player), { persistent: true });
+    var stateChange = ultimateModeOnStateChange(player);
+    player.addEventListener(GameObjectEvent.LAND, enableAir, { persistent: true });
+    player.addEventListener(EntityEvent.STATE_CHANGE, stateChange, { persistent: true });
     player.addEventListener(GameObjectEvent.HIT_RECEIVED, finishZoom, { persistent: true });
+    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, hitConnected, { persistent: true });
+
+    events.push([GameObjectEvent.HIT_RECEIVED, finishZoom]);
+    events.push([EntityEvent.STATE_CHANGE, stateChange]);
+    events.push([GameObjectEvent.LAND, enableAir]);
+    events.push([GameObjectEvent.HITBOX_CONNECTED, hitConnected]);
 
 
 
 
-    player.addTimer(1, -1, function () {
+
+    timers.push(player.addTimer(1, -1, function () {
+        if (globalController.exports.data.meters == null) {
+            return;
+        }
         var port = player.getPlayerConfig().port;
         var charge = globalController.exports.data.meters[port].sprite.currentFrame;
         if (player.getAnimation() != "final_smash"
@@ -1941,11 +1949,15 @@ function ultimateMode(player: Character): void {
             globalController.exports.data.meters[port].sprite.currentFrame = 0;
             performFinalSmash(player);
         }
-    }, { persistent: true });
+    }, { persistent: true }));
 
-    player.addEventListener(GameObjectEvent.HITBOX_CONNECTED, function (event: GameObjectEvent) {
-        event.data.hitboxStats.shieldstunMultiplier = 3;
-    }, { persistent: true });
+    return {
+        dispose: function () {
+            genericDispose(player, timers, events);
+            finalSmash.dispose();
+        }
+    }
+
 
 }
 
@@ -1971,12 +1983,22 @@ function createFinalSmashMeter(player: Character) {
 
 
 function activateFinalSmashMeter(player: Character) {
+    var timers = [];
+    var events = [];
+    if (globalController.exports.data.finalSmashForm == null) {
+        globalController.exports.data.finalSmashForm = [false, false, false, false];
+    }
+    if (globalController.exports.data.meters == null) {
+        globalController.exports.data.meters = [null, null, null, null];
+
+    }
     var port = player.getPlayerConfig().port;
+    globalController.exports.data.meters[port] = createFinalSmashMeter(player);
     var spriteObj = globalController.exports.data.meters[port];
     var meter: Sprite = spriteObj.sprite;
     var filter: HsbcColorFilter = spriteObj.filter;
 
-    player.addTimer(1, -1, function () {
+    timers.push(player.addTimer(1, -1, function () {
         if (meter.currentFrame >= FINAL_SMASH_CHARGE) {
             filter.hue += 0.05;
         } else {
@@ -1993,8 +2015,8 @@ function activateFinalSmashMeter(player: Character) {
                 meter.currentFrame = 0;
             }, { persistent: true });
         }
-    }, { persistent: true });
-    player.addEventListener(GameObjectEvent.HIT_RECEIVED, function (event: GameObjectEvent) {
+    }, { persistent: true }));
+    function hitReceived(event: GameObjectEvent) {
         var charge = meter.currentFrame;
         if (player.getAnimation() != "final_smash" && !event.data.self.hasBodyStatus(BodyStatus.INVINCIBLE)) {
             var damage = Math.round(event.data.hitboxStats.damage * 2.5);
@@ -2005,9 +2027,8 @@ function activateFinalSmashMeter(player: Character) {
             }
         }
 
-    }, { persistent: true });
-
-    player.addEventListener(GameObjectEvent.HIT_DEALT, function (event: GameObjectEvent) {
+    }
+    function hitDealt(event: GameObjectEvent) {
         var charge = meter.currentFrame;
         if (player.getAnimation() != "final_smash" && !event.data.foe.hasBodyStatus(BodyStatus.INVINCIBLE)) {
             var damage = Math.ceil(event.data.hitboxStats.damage);
@@ -2018,32 +2039,39 @@ function activateFinalSmashMeter(player: Character) {
             }
         }
 
-    }, { persistent: true });
+    }
+    player.addEventListener(GameObjectEvent.HIT_RECEIVED, hitReceived, { persistent: true });
+    player.addEventListener(GameObjectEvent.HIT_DEALT, hitDealt, { persistent: true });
+    events.push([GameObjectEvent.HIT_DEALT, hitDealt]);
+    events.push([GameObjectEvent.HIT_RECEIVED, hitReceived]);
+    return {
+        dispose: function () {
+            genericDispose(player, timers, events);
+            meter.dispose();
+        }
+    }
 }
 
 function enableUltimateMode() {
-    globalController.exports.data = {
-        finalSmashForm: [false, false, false, false],
-        meters: [null, null, null, null]
-    };
-
     Engine.forEach(match.getPlayers(), function (player: Character, _idx: Int) {
-        var port = player.getPlayerConfig().port;
-        globalController.exports.data.meters[port] = createFinalSmashMeter(player);
-        activateFinalSmashMeter(player);
         ultimateMode(player);
         return true;
     }, []);
 }
 function smash64Mode(player: Character) {
     player.addStatusEffect(StatusEffectType.ATTACK_HITSTUN_MULTIPLIER, 1.5);
-    player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.SPECIAL_SIDE);
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_DOWN);
     player.addStatusEffect(StatusEffectType.DISABLE_ACTION, CharacterActions.THROW_UP);
     player.updateCharacterStats({ airdashLimit: 0 });
 
     var shield = createShield(player, SMASH64_VARIANT);
 
+    player.addEventListener(EntityEvent.STATE_CHANGE, function (e: EntityEvent) {
+        var toState = e.data.toState;
+        if (toState == CState.SPECIAL_SIDE) {
+            player.toState(CState.SPECIAL_NEUTRAL);
+        }
+    }, { persistent: true });
 
     player.addTimer(1, -1, function () {
         if (player.inStateGroup(CStateGroup.ATTACK)) {
@@ -2287,7 +2315,12 @@ function createTimeObject(frames: Int) {
 
 
 function enableCoins() {
-    globalController.exports.data = { coins: [0, 0, 0, 0], coinSprites: [[], [], [], []], spawnPositions: [{}, {}, {}, {}] };
+    globalController.exports.data.coins = [0, 0, 0, 0];
+
+    globalController.exports.data.coinSprites = [[], [], [], []];
+
+    globalController.exports.data.spawnPositions = [{}, {}, {}, {}];
+
 
     if (match.getMatchSettingsConfig().time > 0) {
         timeLeft.set(match.getMatchSettingsConfig().time * 60);
@@ -2734,7 +2767,7 @@ function renderTime(time, sprites: Array<Sprite>, container: Container, yOffset:
         sprite.x = 500 + (baseOffset) * (1 + pos);
         if (GraphicsSettings.damageHudPosition == "top") {
             // Make Top HUD specific changes here
-            sprite.y = 330 + yOffset;
+            sprite.y = 320 + yOffset;
         } else {
             sprite.y = 32 + yOffset;
         }
@@ -3040,7 +3073,9 @@ function landedParry(duration: Int) {
 
     Engine.forEach(players, function (player: Character, _idx: Int) {
         var req = function (event: ScoreEvent) {
-            setMissionStatus(event.data.self, MISSION_SUCCESS);
+            if (event.data.self == player) {
+                setMissionStatus(event.data.self, MISSION_SUCCESS);
+            }
         };
 
         match.addEventListener(ScoreEvent.PARRY, req, { persistent: true });
@@ -3236,12 +3271,11 @@ function runMission(mission: { displayString: Array<String>, duration: Int, miss
 
 
 function enableMissionMode() {
-    globalController.exports.data = {
-        missionStatus: [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING],
-        missionData: [{}, {}, {}, {}],
-        missionStatusSprites: [null, null, null, null],
-        cooldown: false
-    };
+    globalController.exports.data.missionStatus = [MISSION_PENDING, MISSION_PENDING, MISSION_PENDING, MISSION_PENDING];
+    globalController.exports.data.missionData = [{}, {}, {}, {}];
+    globalController.exports.data.missionStatusSprites = [null, null, null, null];
+    globalController.exports.data.cooldown = false;
+
 
 
     var p: Character = self.getOwner();
